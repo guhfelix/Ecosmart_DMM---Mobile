@@ -1,10 +1,21 @@
 import React from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AppCard } from '../components/AppCard';
 import { homeItems } from '../data/mockData';
 import { colors } from '../theme/colors';
 
-export function HomeScreen() {
+type Props = {
+  onNavigate: (screen: 'available' | 'collected') => void;
+};
+
+export function HomeScreen({ onNavigate }: Props) {
+  const actions = [
+    { key: 'available', title: homeItems[0].titulo, description: homeItems[0].descricao },
+    { key: 'available', title: homeItems[1].titulo, description: homeItems[1].descricao },
+    { key: 'available', title: homeItems[2].titulo, description: homeItems[2].descricao },
+    { key: 'collected', title: 'Coletas realizadas', description: 'Visualizar descartes já marcados como coletados.' },
+  ] as const;
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -16,12 +27,10 @@ export function HomeScreen() {
 
         <Text style={styles.sectionTitle}>Funcionalidades do MVP</Text>
 
-        {homeItems.map((item) => (
-          <AppCard
-            key={item.id}
-            title={item.titulo}
-            description={item.descricao}
-          />
+        {actions.map((item, index) => (
+          <Pressable key={`${item.key}-${index}`} onPress={() => onNavigate(item.key)}>
+            <AppCard title={item.title} description={item.description} />
+          </Pressable>
         ))}
       </ScrollView>
     </SafeAreaView>

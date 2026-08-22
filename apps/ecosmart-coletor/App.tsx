@@ -5,8 +5,14 @@ import { AvailableDiscardsScreen } from './src/screens/AvailableDiscardsScreen';
 import { CollectedDiscardsScreen } from './src/screens/CollectedDiscardsScreen';
 import { DiscardDetailsScreen } from './src/screens/DiscardDetailsScreen';
 import { CollectorDiscard, initialDiscards } from './src/data/mockData';
+import { AuthScreen, AuthUserInput } from './src/screens/AuthScreen';
 
 type Screen = 'home' | 'available' | 'details' | 'collected';
+const TEST_USER: AuthUserInput = {
+  name: 'Lucas',
+  email: 'lucas@gmail.com',
+  password: '1234',
+};
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('home');
@@ -14,6 +20,8 @@ export default function App() {
   const [items, setItems] = useState<CollectorDiscard[]>(initialDiscards);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [detailsBackScreen, setDetailsBackScreen] = useState<Screen>('available');
+  const [currentUser, setCurrentUser] = useState<AuthUserInput | null>(null);
+  const [registeredUsers, setRegisteredUsers] = useState<AuthUserInput[]>([]);
 
   const pendingItems = useMemo(() => {
     return items.filter((item) => {
@@ -53,7 +61,40 @@ export default function App() {
     setScreen('collected');
   };
 
+  const handleLogin = (email: string, password: string) => {
+    const user = [TEST_USER, ...registeredUsers].find(
+      (item) => item.email.toLowerCase() === email.trim().toLowerCase() && item.password === password,
+    );
+
+    if (!user) {
+      return false;
+    }
+
+    setCurrentUser(user);
+    setScreen('home');
+    return true;
+  };
+
+  const handleRegister = (user: AuthUserInput) => {
+    const normalizedUser = { ...user, email: user.email.toLowerCase() };
+    setRegisteredUsers((prev) => [
+      normalizedUser,
+      ...prev.filter((item) => item.email.toLowerCase() !== normalizedUser.email),
+    ]);
+    setCurrentUser(normalizedUser);
+    setScreen('home');
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setScreen('home');
+  };
+
   const renderScreen = () => {
+    if (!currentUser) {
+      return <AuthScreen onLogin={handleLogin} onRegister={handleRegister} />;
+    }
+
     if (screen === 'available') {
       return (
         <AvailableDiscardsScreen
@@ -86,7 +127,7 @@ export default function App() {
       );
     }
 
-    return <HomeScreen onNavigate={setScreen} />;
+    return <HomeScreen onNavigate={setScreen} onLogout={handleLogout} />;
   };
 
   return (

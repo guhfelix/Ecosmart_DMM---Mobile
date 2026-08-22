@@ -5,6 +5,7 @@ import { WasteTypesScreen } from './src/screens/WasteTypesScreen';
 import { CollectionPointsScreen } from './src/screens/CollectionPointsScreen';
 import { EducationalTipsScreen } from './src/screens/EducationalTipsScreen';
 import { RecordsScreen } from './src/screens/RecordsScreen';
+import { AuthScreen, AuthUserInput } from './src/screens/AuthScreen';
 import {
   AdminDiscardRecord,
   AdminDiscardStatus,
@@ -25,6 +26,11 @@ type CollectionPointInput = Omit<CollectionPointItem, 'id'> & { id?: string };
 type EducationalTipInput = Omit<EducationalTipItem, 'id'> & { id?: string };
 
 const createId = () => `${Date.now()}`;
+const TEST_USER: AuthUserInput = {
+  name: 'João',
+  email: 'joao@gmail.com',
+  password: '1234',
+};
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('home');
@@ -33,6 +39,37 @@ export default function App() {
   const [educationalTips, setEducationalTips] = useState<EducationalTipItem[]>(initialEducationalTips);
   const [records] = useState<AdminDiscardRecord[]>(initialDiscardRecords);
   const [recordFilter, setRecordFilter] = useState<RecordFilter>('todos');
+  const [currentUser, setCurrentUser] = useState<AuthUserInput | null>(null);
+  const [registeredUsers, setRegisteredUsers] = useState<AuthUserInput[]>([]);
+
+  const handleLogin = (email: string, password: string) => {
+    const user = [TEST_USER, ...registeredUsers].find(
+      (item) => item.email.toLowerCase() === email.trim().toLowerCase() && item.password === password,
+    );
+
+    if (!user) {
+      return false;
+    }
+
+    setCurrentUser(user);
+    setScreen('home');
+    return true;
+  };
+
+  const handleRegister = (user: AuthUserInput) => {
+    const normalizedUser = { ...user, email: user.email.toLowerCase() };
+    setRegisteredUsers((prev) => [
+      normalizedUser,
+      ...prev.filter((item) => item.email.toLowerCase() !== normalizedUser.email),
+    ]);
+    setCurrentUser(normalizedUser);
+    setScreen('home');
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setScreen('home');
+  };
 
   const saveWasteType = (input: WasteTypeInput) => {
     if (input.id) {
@@ -66,6 +103,10 @@ export default function App() {
   };
 
   const renderScreen = () => {
+    if (!currentUser) {
+      return <AuthScreen onLogin={handleLogin} onRegister={handleRegister} />;
+    }
+
     if (screen === 'wasteTypes') {
       return (
         <WasteTypesScreen
@@ -110,7 +151,7 @@ export default function App() {
       );
     }
 
-    return <HomeScreen onNavigate={setScreen} />;
+    return <HomeScreen onNavigate={setScreen} onLogout={handleLogout} />;
   };
 
   return (

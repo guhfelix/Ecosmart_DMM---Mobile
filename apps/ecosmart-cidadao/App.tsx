@@ -6,8 +6,14 @@ import { RegisterDiscardScreen, DiscardItem } from './src/screens/RegisterDiscar
 import { HistoryScreen } from './src/screens/HistoryScreen';
 import { TipsScreen } from './src/screens/TipsScreen';
 import { CollectionPointsScreen } from './src/screens/CollectionPointsScreen';
+import { AuthScreen, AuthUserInput } from './src/screens/AuthScreen';
 
 const STORAGE_KEY = '@ecosmart_cidadao_discards';
+const TEST_USER: AuthUserInput = {
+  name: 'Maria',
+  email: 'maria@gmail.com',
+  password: '1234',
+};
 
 type Screen = 'home' | 'register' | 'history' | 'tips' | 'points';
 
@@ -15,6 +21,8 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('home');
   const [items, setItems] = useState<DiscardItem[]>([]);
   const [isReady, setIsReady] = useState(false);
+  const [currentUser, setCurrentUser] = useState<AuthUserInput | null>(null);
+  const [registeredUsers, setRegisteredUsers] = useState<AuthUserInput[]>([]);
 
   useEffect(() => {
     const loadItems = async () => {
@@ -51,7 +59,40 @@ export default function App() {
     setItems((prev) => [item, ...prev]);
   };
 
+  const handleLogin = (email: string, password: string) => {
+    const user = [TEST_USER, ...registeredUsers].find(
+      (item) => item.email.toLowerCase() === email.trim().toLowerCase() && item.password === password,
+    );
+
+    if (!user) {
+      return false;
+    }
+
+    setCurrentUser(user);
+    setScreen('home');
+    return true;
+  };
+
+  const handleRegister = (user: AuthUserInput) => {
+    const normalizedUser = { ...user, email: user.email.toLowerCase() };
+    setRegisteredUsers((prev) => [
+      normalizedUser,
+      ...prev.filter((item) => item.email.toLowerCase() !== normalizedUser.email),
+    ]);
+    setCurrentUser(normalizedUser);
+    setScreen('home');
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setScreen('home');
+  };
+
   const renderScreen = useMemo(() => {
+    if (!currentUser) {
+      return <AuthScreen onLogin={handleLogin} onRegister={handleRegister} />;
+    }
+
     switch (screen) {
       case 'register':
         return <RegisterDiscardScreen onSave={addDiscard} onBack={() => setScreen('home')} />;
@@ -63,9 +104,9 @@ export default function App() {
         return <CollectionPointsScreen onBack={() => setScreen('home')} />;
       case 'home':
       default:
-        return <HomeScreen onNavigate={setScreen} />;
+        return <HomeScreen onNavigate={setScreen} onLogout={handleLogout} />;
     }
-  }, [screen, items]);
+  }, [screen, items, currentUser, registeredUsers]);
 
   return (
     <>

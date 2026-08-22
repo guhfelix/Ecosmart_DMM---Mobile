@@ -6,9 +6,10 @@ import { colors } from '../theme/colors';
 
 type Props = {
   onNavigate: (screen: 'wasteTypes' | 'collectionPoints' | 'tips' | 'records') => void;
+  onLogout?: () => void;
 };
 
-export function HomeScreen({ onNavigate }: Props) {
+export function HomeScreen({ onNavigate, onLogout }: Props) {
   const actions = [
     { key: 'wasteTypes', title: homeItems[0].titulo, description: homeItems[0].descricao },
     { key: 'collectionPoints', title: homeItems[1].titulo, description: homeItems[1].descricao },
@@ -20,7 +21,14 @@ export function HomeScreen({ onNavigate }: Props) {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.logo}>♻️</Text>
+          <View style={styles.headerTop}>
+            <Text style={styles.logo}>♻️</Text>
+            {onLogout ? (
+              <Pressable style={styles.logoutButton} onPress={onLogout}>
+                <Text style={styles.logoutButtonText}>Sair</Text>
+              </Pressable>
+            ) : null}
+          </View>
           <Text style={styles.title}>EcoSmart Admin</Text>
           <Text style={styles.subtitle}>Perfil Administrador</Text>
         </View>
@@ -46,7 +54,25 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 20,
   },
-  logo: { fontSize: 38, marginBottom: 8 },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  logo: { fontSize: 38 },
+  logoutButton: {
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  logoutButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 13,
+  },
   title: { fontSize: 26, fontWeight: '800', color: '#FFFFFF' },
   subtitle: { fontSize: 16, color: '#E8F5E9', marginTop: 6 },
   sectionTitle: { fontSize: 20, fontWeight: '700', color: colors.text, marginBottom: 14 },

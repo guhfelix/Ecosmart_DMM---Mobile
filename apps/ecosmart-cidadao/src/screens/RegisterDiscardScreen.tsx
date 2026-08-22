@@ -11,15 +11,9 @@ import {
 } from 'react-native';
 import { colors } from '../theme/colors';
 import { wasteTypes } from '../data/mockData';
+import type { DiscardItem } from '../../../../shared/models';
 
-export type DiscardItem = {
-  id: string;
-  type: string;
-  quantity: string;
-  observation: string;
-  date: string;
-  status: 'Pendente' | 'Coletado';
-};
+export type { DiscardItem };
 
 type Props = {
   onSave: (item: DiscardItem) => void;

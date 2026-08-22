@@ -1,123 +1,130 @@
-# ♻️ EcoSmart Mobile
+# EcoSmart Mobile
 
-## Ecossistema Mobile para Descarte Sustentável de Resíduos
+## Ecossistema mobile para descarte sustentável de resíduos
 
-![Status](https://img.shields.io/badge/status-em%20desenvolvimento-yellow)
+![Status](https://img.shields.io/badge/status-MVP%20funcional-green)
 ![React Native](https://img.shields.io/badge/React%20Native-Mobile-blue)
-![Expo](https://img.shields.io/badge/Expo-Framework-black)
-![TypeScript](https://img.shields.io/badge/TypeScript-Language-blue)
-![MVP](https://img.shields.io/badge/MVP-Mobile-green)
+![Expo](https://img.shields.io/badge/Expo-SDK%2054-black)
+![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue)
 ![License](https://img.shields.io/badge/license-academic-lightgrey)
 
----
+O **EcoSmart Mobile** é um projeto acadêmico desenvolvido para a disciplina de **Dispositivos Móveis**. A proposta é organizar um ecossistema de aplicativos para apoiar o descarte correto de resíduos, conectar cidadãos a coletores e permitir que administradores mantenham os dados básicos do sistema.
 
-## 📌 Sobre o projeto
+O projeto está organizado em três aplicativos independentes, todos em **React Native com Expo**:
 
-O **EcoSmart Mobile** é um projeto acadêmico desenvolvido para a disciplina de **Dispositivos Móveis**, com o objetivo de criar um ecossistema de aplicativos voltado ao **descarte sustentável de resíduos**.
+| Aplicativo | Perfil | Status | Função principal |
+|---|---|---|---|
+| **EcoSmart Cidadão** | Cidadão | MVP funcional | Registrar descartes, consultar histórico, dicas e pontos de coleta |
+| **EcoSmart Empresa/Catador** | Coletor | MVP funcional | Visualizar descartes disponíveis, filtrar, consultar detalhes e marcar coletas |
+| **EcoSmart Admin** | Administrador | MVP funcional | Gerenciar resíduos, pontos de coleta, dicas educativas e registros gerais |
 
-O projeto será desenvolvido em **React Native com Expo** e organizado em **três aplicativos independentes**, cada um destinado a um perfil de usuário:
+## Funcionalidades Implementadas
 
-- **EcoSmart Cidadão:** aplicativo para cidadãos, estudantes e moradores que desejam registrar descartes, consultar dicas educativas e visualizar pontos de coleta.
-- **EcoSmart Empresa/Catador:** aplicativo para catadores, cooperativas ou empresas que desejam visualizar resíduos disponíveis e marcar coletas como realizadas.
-- **EcoSmart Admin:** aplicativo para administradores responsáveis por cadastrar tipos de resíduos, pontos de coleta e conteúdos educativos.
+### Login e cadastro
 
-Os três aplicativos fazem parte do mesmo ecossistema e poderão compartilhar a mesma base de dados, permitindo integração entre quem descarta, quem coleta e quem administra as informações.
+Os três apps possuem uma tela inicial de autenticação com alternância entre **Entrar** e **Cadastrar**. O cadastro é local e simples, voltado para demonstração do MVP.
 
----
+Credenciais de teste:
 
-## 🎯 Objetivo geral
-
-Desenvolver um ecossistema mobile composto por três aplicativos em React Native, capazes de apoiar o descarte correto de resíduos, facilitar a comunicação entre cidadãos e coletores, e permitir a administração de informações sobre resíduos, pontos de coleta e conteúdos educativos.
-
----
-
-## 📱 Aplicativos do ecossistema
-
-| Aplicativo | Perfil | Função principal |
+| Perfil | E-mail | Senha |
 |---|---|---|
-| **EcoSmart Cidadão** | Cidadão | Registrar descartes e consultar informações |
-| **EcoSmart Empresa/Catador** | Empresa/Catador | Visualizar resíduos disponíveis e marcar coletas |
-| **EcoSmart Admin** | Administrador | Gerenciar dados básicos do ecossistema |
+| Admin | `joao@gmail.com` | `1234` |
+| Cidadão | `maria@gmail.com` | `1234` |
+| Coletor | `lucas@gmail.com` | `1234` |
 
----
+### EcoSmart Cidadão
 
-## 🛠️ Tecnologias previstas
+- [x] Login e cadastro simples.
+- [x] Tela inicial com navegação.
+- [x] Cadastro de descarte.
+- [x] Seleção de tipo de resíduo.
+- [x] Histórico de descartes.
+- [x] Dicas educativas.
+- [x] Pontos de coleta.
+- [x] Persistência local dos descartes com AsyncStorage.
+- [x] Testes básicos da Home.
 
-| Tecnologia | Uso no projeto |
+### EcoSmart Empresa/Catador
+
+- [x] Login e cadastro simples.
+- [x] Tela inicial com navegação.
+- [x] Lista de descartes disponíveis.
+- [x] Filtro por tipo de resíduo.
+- [x] Tela de detalhes do descarte.
+- [x] Marcar descarte como coletado.
+- [x] Lista de coletas realizadas.
+
+### EcoSmart Admin
+
+- [x] Login e cadastro simples.
+- [x] Tela inicial administrativa.
+- [x] Gerenciar tipos de resíduos.
+- [x] Gerenciar pontos de coleta.
+- [x] Gerenciar dicas educativas.
+- [x] Visualizar registros gerais.
+- [x] Filtrar registros por status.
+- [x] Resumo de registros pendentes, visualizados e coletados.
+
+## Tecnologias
+
+| Tecnologia | Uso |
 |---|---|
 | **React Native** | Desenvolvimento mobile |
-| **Expo** | Execução, testes e empacotamento dos aplicativos |
-| **TypeScript** | Organização e segurança no código |
-| **AsyncStorage** | Persistência local futura |
-| **Firebase ou Supabase** | Banco de dados compartilhado em etapa futura |
+| **Expo SDK 54** | Execução e empacotamento dos apps |
+| **TypeScript** | Tipagem e organização do código |
+| **AsyncStorage** | Persistência local no app Cidadão |
+| **Jest / jest-expo** | Testes do app Cidadão |
 | **Git e GitHub** | Versionamento |
-| **Figma ou Canva** | Prototipação e planejamento visual |
 
----
-
-## 📂 Estrutura do repositório
+## Estrutura do Repositório
 
 ```text
 Ecosmart_DMM---Mobile/
-│
 ├── README.md
 ├── docs/
 │   ├── arquitetura.md
+│   ├── comandos-git.md
+│   ├── jornadas.md
+│   ├── lean-canvas.md
+│   ├── personas.md
 │   ├── requisitos.md
-│   ├── roadmap.md
-│   └── comandos-git.md
-│
+│   └── roadmap.md
 ├── apps/
 │   ├── ecosmart-cidadao/
 │   ├── ecosmart-coletor/
 │   └── ecosmart-admin/
-│
 ├── shared/
 │   ├── models/
 │   ├── services/
 │   ├── components/
 │   ├── utils/
 │   └── theme/
-│
 └── assets/
     ├── images/
     ├── icons/
     └── screenshots/
 ```
 
----
+## Modelos Compartilhados
 
-## ✅ Funcionalidades do MVP
+O diretório `shared/models` concentra os principais tipos do ecossistema:
 
-### EcoSmart Cidadão
+- `PerfilUsuario`
+- `Usuario`
+- `AuthUserInput`
+- `Descarte`
+- `DiscardItem`
+- `CollectorDiscard`
+- `WasteTypeItem`
+- `CollectionPointItem`
+- `EducationalTipItem`
+- `AdminDiscardRecord`
 
-- [ ] Tela inicial;
-- [ ] Cadastro de descarte;
-- [ ] Seleção de tipo de resíduo;
-- [ ] Histórico de descartes;
-- [ ] Dicas educativas;
-- [ ] Pontos de coleta.
+Os apps usam esses modelos como imports de tipo, mantendo a organização sem criar dependências de execução entre as pastas dos apps.
 
-### EcoSmart Empresa/Catador
+## Como Executar
 
-- [ ] Tela inicial;
-- [ ] Lista de descartes disponíveis;
-- [ ] Filtro por tipo de resíduo;
-- [ ] Detalhes do descarte;
-- [ ] Marcar como coletado;
-- [ ] Lista de coletas realizadas.
-
-### EcoSmart Admin
-
-- [ ] Tela inicial administrativa;
-- [ ] Gerenciar tipos de resíduos;
-- [ ] Gerenciar pontos de coleta;
-- [ ] Gerenciar dicas educativas;
-- [ ] Visualizar descartes registrados.
-
----
-
-## 🧑‍💻 Como executar os aplicativos
+Instale as dependências dentro do app desejado e inicie com Expo:
 
 ### App Cidadão
 
@@ -143,14 +150,62 @@ npm install
 npx expo start
 ```
 
----
+Para rodar os três ao mesmo tempo, use portas diferentes:
 
-## 📄 Licença
+```bash
+cd apps/ecosmart-cidadao
+npx expo start --port 8081
+```
 
-Este projeto possui finalidade acadêmica e está sendo desenvolvido para fins de aprendizagem.
+```bash
+cd apps/ecosmart-coletor
+npx expo start --port 8082
+```
 
----
+```bash
+cd apps/ecosmart-admin
+npx expo start --port 8083
+```
 
-## ♻️ EcoSmart Mobile
+Depois, abra o QR code no **Expo Go** no iOS ou Android.
 
-**Conectando cidadãos, coletores e administradores para um descarte mais sustentável.**
+> Em redes institucionais, o Android pode não conseguir acessar o computador pela rede local. Nesse caso, use uma rede particular, hotspot ou o modo tunnel do Expo.
+
+## Validação
+
+Comando usado para validar TypeScript em cada app:
+
+```bash
+npx tsc --noEmit
+```
+
+No app Cidadão:
+
+```bash
+npm test
+```
+
+Checagem recomendada antes de uma entrega final:
+
+```bash
+npx expo-doctor
+```
+
+## Limitações Atuais
+
+- O projeto ainda não possui backend.
+- Login e cadastro são locais e simplificados para teste do MVP.
+- Dados de Admin e Coletor usam estado local/mockado.
+- Integração com Firebase, Supabase ou API própria fica para uma etapa futura.
+
+## Próximos Passos
+
+- Melhorar teste em Android usando tunnel ou rede sem bloqueio.
+- Adicionar persistência local também no Coletor e Admin.
+- Substituir `SafeAreaView` deprecated por `react-native-safe-area-context`.
+- Criar testes básicos para Coletor e Admin.
+- Planejar backend para autenticação, descartes, pontos de coleta e dicas.
+
+## Licença
+
+Projeto acadêmico desenvolvido para fins de aprendizagem.

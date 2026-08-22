@@ -12,12 +12,9 @@ import {
   View,
 } from 'react-native';
 import { colors } from '../theme/colors';
+import type { AuthUserInput } from '../../../../shared/models';
 
-export type AuthUserInput = {
-  name: string;
-  email: string;
-  password: string;
-};
+export type { AuthUserInput };
 
 type AuthMode = 'login' | 'register';
 

@@ -1,24 +1,13 @@
+import type { CollectorDiscard, DiscardStatus } from '../../../../shared/models';
+
+export type { CollectorDiscard, DiscardStatus };
+
 export const homeItems = [
   { id: '1', titulo: 'Descartes disponíveis', descricao: 'Visualizar resíduos cadastrados pelos cidadãos.' },
   { id: '2', titulo: 'Filtro por tipo', descricao: 'Filtrar descartes por categoria de resíduo.' },
   { id: '3', titulo: 'Detalhes do descarte', descricao: 'Consultar tipo, quantidade e status do resíduo.' },
   { id: '4', titulo: 'Marcar como coletado', descricao: 'Atualizar o status da coleta quando realizada.' },
 ];
-
-export type DiscardStatus = 'pendente' | 'coletado';
-
-export type CollectorDiscard = {
-  id: string;
-  citizenName: string;
-  wasteType: string;
-  quantity: string;
-  address: string;
-  neighborhood: string;
-  observation?: string;
-  createdAt: string;
-  status: DiscardStatus;
-  collectedAt?: string;
-};
 
 export const wasteTypes = ['Todos', 'Papel', 'Plástico', 'Vidro', 'Metal', 'Eletrônico', 'Orgânico'];
 

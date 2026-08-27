@@ -1,0 +1,14 @@
+{
+  "name": "ecosmart-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backend API & Serviços do ecossistema EcoSmart Mobile",
+  "main": "src/server.ts",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@dataconnect/generated": "file:src/dataconnect-generated"
+  }
+}

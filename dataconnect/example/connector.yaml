@@ -1,0 +1,33 @@
+connectorId: example
+generate:
+  javascriptSdk:
+    - outputDir: ..\..\src\dataconnect-generated
+      package: "@dataconnect/generated"
+      packageJsonDir: ..\..
+      react: false
+      angular: false
+      clientCache: {}
+    - outputDir: ..\..\backend\src\dataconnect-generated
+      package: "@dataconnect/generated"
+      packageJsonDir: ..\..\backend
+      react: false
+      angular: false
+      clientCache: {}
+    - outputDir: ..\..\frontend\ecosmart-coletor\src\dataconnect-generated
+      package: "@dataconnect/generated"
+      packageJsonDir: ..\..\frontend\ecosmart-coletor
+      react: true
+      angular: false
+      clientCache: {}
+    - outputDir: ..\..\frontend\ecosmart-cidadao\src\dataconnect-generated
+      package: "@dataconnect/generated"
+      packageJsonDir: ..\..\frontend\ecosmart-cidadao
+      react: true
+      angular: false
+      clientCache: {}
+    - outputDir: ..\..\frontend\ecosmart-admin\src\dataconnect-generated
+      package: "@dataconnect/generated"
+      packageJsonDir: ..\..\frontend\ecosmart-admin
+      react: true
+      angular: false
+      clientCache: {}

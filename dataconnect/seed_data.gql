@@ -1,0 +1,88 @@
+mutation SeedDatabase @transaction {
+  user_insertMany(data: [
+    {
+      id: "550e8400-e29b-41d4-a716-446655440001",
+      email: "alice@example.com",
+      displayName: "Alice"
+    },
+    {
+      id: "550e8400-e29b-41d4-a716-446655440002",
+      email: "bob@example.com",
+      displayName: "Bob"
+    },
+    {
+      id: "550e8400-e29b-41d4-a716-446655440003",
+      email: "charlie@example.com",
+      displayName: "Charlie"
+    }
+  ])
+  project_insertMany(data: [
+    {
+      id: "660e8400-e29b-41d4-a716-446655440001",
+      title: "Project Alpha",
+      ownerId: "550e8400-e29b-41d4-a716-446655440001",
+      createdAt: "2023-01-01T00:00:00Z"
+    },
+    {
+      id: "660e8400-e29b-41d4-a716-446655440002",
+      title: "Project Beta",
+      ownerId: "550e8400-e29b-41d4-a716-446655440002",
+      createdAt: "2023-02-01T00:00:00Z"
+    }
+  ])
+  membership_insertMany(data: [
+    {
+      projectId: "660e8400-e29b-41d4-a716-446655440001",
+      userId: "550e8400-e29b-41d4-a716-446655440002",
+      role: "Editor"
+    },
+    {
+      projectId: "660e8400-e29b-41d4-a716-446655440002",
+      userId: "550e8400-e29b-41d4-a716-446655440003",
+      role: "Viewer"
+    }
+  ])
+  task_insertMany(data: [
+    {
+      id: "770e8400-e29b-41d4-a716-446655440001",
+      title: "Task 1",
+      status: "Open",
+      dueDate: "2023-12-31",
+      projectId: "660e8400-e29b-41d4-a716-446655440001"
+    },
+    {
+      id: "770e8400-e29b-41d4-a716-446655440002",
+      title: "Task 2",
+      status: "In Progress",
+      dueDate: "2024-01-15",
+      projectId: "660e8400-e29b-41d4-a716-446655440001"
+    },
+    {
+      id: "770e8400-e29b-41d4-a716-446655440003",
+      title: "Task 3",
+      status: "Done",
+      dueDate: "2023-11-20",
+      projectId: "660e8400-e29b-41d4-a716-446655440002"
+    }
+  ])
+  comment_insertMany(data: [
+    {
+      content: "Great progress!",
+      createdAt: "2023-01-05T10:00:00Z",
+      userId: "550e8400-e29b-41d4-a716-446655440001",
+      taskId: "770e8400-e29b-41d4-a716-446655440001"
+    },
+    {
+      content: "Need more details.",
+      createdAt: "2023-01-06T12:00:00Z",
+      userId: "550e8400-e29b-41d4-a716-446655440002",
+      taskId: "770e8400-e29b-41d4-a716-446655440001"
+    },
+    {
+      content: "Completed my part.",
+      createdAt: "2023-02-05T09:00:00Z",
+      userId: "550e8400-e29b-41d4-a716-446655440003",
+      taskId: "770e8400-e29b-41d4-a716-446655440003"
+    }
+  ])
+}

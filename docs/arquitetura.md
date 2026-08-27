@@ -1,84 +1,105 @@
 # Arquitetura do EcoSmart Mobile
 
-O EcoSmart Mobile é organizado como um ecossistema com três aplicativos independentes em React Native com Expo.
+O ecossistema **EcoSmart Mobile** é organizado em camadas modulares e desacopladas: **Frontend**, **Backend**, **Banco de Dados & Nuvem (Firebase)**, **Camada Compartilhada**, **Executáveis** e **Scripts de Automação**.
 
 ```text
-Admin cadastra dados -> Cidadão registra descarte -> Empresa/Catador coleta -> Todos acompanham o status
+Admin cadastra catálogo e monitora ESG -> Cidadão registra descarte (GPS/Fotos/Firestore) -> Empresa/Catador coleta -> Gestão analisa indicadores ESG
 ```
 
-## Aplicativos
+---
+
+## 🏛️ Estrutura Geral do Projeto
 
 ```text
-apps/
-├── ecosmart-cidadao/
-├── ecosmart-coletor/
-└── ecosmart-admin/
+Ecosmart_DMM---Mobile/
+├── frontend/                   📱 Aplicativos Mobile (React Native / Expo SDK 54)
+│   ├── ecosmart-cidadao/       # App Cidadão (Porta 8081 - Registro, Histórico, Dicas, Pontos, Perfil, Firestore)
+│   ├── ecosmart-coletor/       # App Coletor (Porta 8082 - Descartes, Distâncias Haversine, Rotas, Listeners onSnapshot)
+│   └── ecosmart-admin/         # App Admin (Porta 8083 - CRUDs, Relatórios ESG em CSV, Perfil/Governança)
+│
+├── backend/                    ⚙️ API, Controladores & Serviços de Sincronização
+│   └── src/
+│       ├── controllers/        # Controladores (Auth, Descarte, Coleta, Admin)
+│       ├── routes/             # Definições de rotas da API (Auth, Discard, Admin, Sync)
+│       ├── services/           # Regras de negócio e sincronização offline
+│       └── server.ts           # Ponto de entrada central da API
+│
+├── database/                   🗄️ Modelagem de Dados & Persistência
+│   ├── schemas/                # Esquemas DDL SQL, regras Firestore (firestore.rules) e índices
+│   ├── seeds/                  # Carga inicial com fotos, coordenadas GPS e perfis
+│   └── repositories/           # Camada de acesso desacoplada (com UUIDs)
+│
+├── shared/                     🔄 Contratos Compartilhados (Frontend & Backend)
+│   ├── models/                 # Modelos de domínio TypeScript
+│   ├── services/               # Firebase (Firestore/Auth/Storage), Sincronização, Segurança e Relatórios
+│   ├── utils/                  # Haversine (geoUtils), UUID v4 (idUtils) e Validação (validationUtils)
+│   └── components/             # Componentes e modais compartilhados (NotificationModal, OfflineBanner)
+│
+├── executaveis/                🚀 Scripts .bat de Automação com Duplo Clique no Windows
+│
+├── scripts/                    🛠️ Automações e Sincronização do Monorepo
+│   ├── sync-shared.js          # Sincronizador automatizado de shared/ para os frontends
+│   ├── ensure-server.js        # Auto-inicializador do Servidor Backend e conexão Firebase
+│   ├── sync-server.js          # Servidor REST central de sincronização (Porta 3333)
+│   └── test-communication.js   # Diagnóstico automatizado de comunicação da API e Firebase
+│
+└── docs/                       📚 Documentação e Especificações do Projeto
 ```
 
-Cada app possui:
+---
 
-- `App.tsx`: controla o fluxo principal e a navegação simples por estado.
-- `src/screens/`: telas do perfil.
-- `src/data/mockData.ts`: dados mockados para demonstração.
-- `src/components/`: componentes locais reutilizáveis.
-- `src/theme/`: cores e tokens visuais locais.
+## 🔄 Métodos de Sincronização & Persistência
 
-## Camada Compartilhada
+```mermaid
+flowchart TD
+    subgraph Nuvem_e_Servidores ["1. Servidor Centralizado & Nuvem"]
+        BackendAPI["Servidor Backend REST / WebSocket\n(Node.js / Express - scripts/sync-server.js)"]
+        FirestoreDB["Banco em Tempo Real\n(Cloud Firestore - Listeners onSnapshot)"]
+    end
 
-```text
-shared/
-├── models/
-├── services/
-├── components/
-├── utils/
-└── theme/
+    subgraph AppCidadao ["2. EcoSmart Cidadão"]
+        CidadaoUI["App Cidadão (Cadastro de Descartes & Perfil)"]
+        CidadaoStorage["AsyncStorage Isolado:\n@ecosmart_cidadao_discards\n@ecosmart_cidadao_session"]
+    end
+
+    subgraph AppColetor ["3. EcoSmart Coletor"]
+        ColetorUI["App Coletor (Rotas de Coleta & Baixas)"]
+        ColetorStorage["AsyncStorage Isolado:\n@ecosmart_coletor_data\n@ecosmart_coletor_session"]
+    end
+
+    subgraph AppAdmin ["4. EcoSmart Admin"]
+        AdminUI["App Admin (Catálogos, PEVs & Relatórios ESG)"]
+        AdminStorage["AsyncStorage Isolado:\n@ecosmart_admin_waste_types\n@ecosmart_admin_records"]
+    end
+
+    CidadaoUI -->|1. Salva localmente apenas seus descartes| CidadaoStorage
+    CidadaoUI -->|2. HTTP POST / onSnapshot| BackendAPI
+    CidadaoUI -->|3. Sincronização Nuvem| FirestoreDB
+
+    ColetorUI -->|1. Salva localmente seus dados de coleta| ColetorStorage
+    ColetorUI -->|2. HTTP PATCH Baixa Coleta| BackendAPI
+    ColetorUI -->|3. Listener onSnapshot| FirestoreDB
+
+    AdminUI -->|1. Salva localmente catálogos de gestão| AdminStorage
+    AdminUI -->|2. HTTP CRUD & Métricas| BackendAPI
+    AdminUI -->|3. Listener onSnapshot| FirestoreDB
 ```
 
-No momento, o uso principal da camada compartilhada é `shared/models`, que concentra os modelos de domínio:
+1. **Servidor Central Backend (Node.js REST na Porta 3333):**
+   * Endpoint de mutação rápida HTTP (`POST /api/discards`, `POST /api/discards/:id/collect`, `DELETE /api/discards/:id`).
+   * Auto-iniciado automaticamente em segundo plano ao executar qualquer aplicativo.
 
-- usuários e perfis;
-- autenticação local;
-- descartes;
-- tipos de resíduos;
-- pontos de coleta;
-- dicas educativas;
-- registros administrativos.
+2. **Banco de Dados em Tempo Real (Firebase Cloud Firestore):**
+   * Listeners nativos **`onSnapshot`** em `firebaseService.ts` para atualização instantânea sem recarregamento.
+   * Persistência explícita de descartes na coleção `descartes` através de `saveCitizenDiscard()`.
 
-Os apps importam esses modelos apenas como tipos TypeScript, usando `import type`.
+3. **Persistência Local Isolada por Aplicativo (`AsyncStorage`):**
+   * Cada aplicativo mantém seus dados locais sob namespace próprio (`@ecosmart_cidadao_*`, `@ecosmart_coletor_*`, `@ecosmart_admin_*`), garantindo que o app Cidadão salve e exiba apenas seus próprios descartes locais.
 
-## Estado Atual dos Dados
+---
 
-| Área | Estratégia atual |
-|---|---|
-| Login/cadastro | Estado local em memória, com credenciais fixas para teste |
-| Cidadão | AsyncStorage para histórico de descartes |
-| Coletor | Dados mockados e estado local em memória |
-| Admin | Dados mockados e estado local em memória |
+## 🧪 Qualidade & Testes
 
-## Fluxo Atual
-
-```text
-1. Usuário acessa o app do seu perfil.
-2. Usuário faz login com credencial de teste ou cria cadastro local.
-3. App exibe as telas do perfil.
-4. Ações do MVP são executadas localmente no dispositivo.
-```
-
-## Integração Futura
-
-O próximo avanço arquitetural será criar uma camada de serviços para substituir mocks e estado local por backend.
-
-Possíveis caminhos:
-
-- Firebase;
-- Supabase;
-- API própria com Node.js, Django ou outro backend.
-
-Essa etapa deve cuidar de:
-
-- autenticação real;
-- usuários por perfil;
-- descartes;
-- status de coleta;
-- pontos de coleta;
-- dicas educativas.
+* **74 suítes de testes** e **382 testes automatizados** com 100% de aprovação.
+* **0 erros de tipagem estática** TypeScript (`npm run typecheck:all`).
+* **Diagnóstico de Comunicação:** `npm run test:communication`.

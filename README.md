@@ -1,211 +1,95 @@
 # EcoSmart Mobile
 
-## Ecossistema mobile para descarte sustentável de resíduos
+## Ecossistema mobile para descarte sustentável de resíduos e logística reversa
 
-![Status](https://img.shields.io/badge/status-MVP%20funcional-green)
+![Status](https://img.shields.io/badge/status-Completo%20(MVP%20%2B%20Melhorias%20%2B%20Google%20Auth%20%2B%20Firebase)-brightgreen)
 ![React Native](https://img.shields.io/badge/React%20Native-Mobile-blue)
 ![Expo](https://img.shields.io/badge/Expo-SDK%2054-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue)
+![Tests](https://img.shields.io/badge/Tests-74%20suites%20%7C%20383%20passed-success)
+![Firebase](https://img.shields.io/badge/Firebase-Firestore%20%2B%20Auth-orange)
 ![License](https://img.shields.io/badge/license-academic-lightgrey)
 
-O **EcoSmart Mobile** é um projeto acadêmico desenvolvido para a disciplina de **Dispositivos Móveis**. A proposta é organizar um ecossistema de aplicativos para apoiar o descarte correto de resíduos, conectar cidadãos a coletores e permitir que administradores mantenham os dados básicos do sistema.
+O **EcoSmart Mobile** é um ecossistema simples, ágil e de fácil acesso desenvolvido para conectar cidadãos a catadores/empresas de coleta e apoiar a gestão municipal e ambiental (ESG).
 
-O projeto está organizado em três aplicativos independentes, todos em **React Native com Expo**:
+O projeto é estruturado em três aplicativos independentes em **React Native com Expo**:
 
-| Aplicativo | Perfil | Status | Função principal |
-|---|---|---|---|
-| **EcoSmart Cidadão** | Cidadão | MVP funcional | Registrar descartes, consultar histórico, dicas e pontos de coleta |
-| **EcoSmart Empresa/Catador** | Coletor | MVP funcional | Visualizar descartes disponíveis, filtrar, consultar detalhes e marcar coletas |
-| **EcoSmart Admin** | Administrador | MVP funcional | Gerenciar resíduos, pontos de coleta, dicas educativas e registros gerais |
+| Aplicativo | Perfil | Porta | Função Principal |
+| :--- | :--- | :--- | :--- |
+| **EcoSmart Cidadão** | Cidadão | `8081` | Registro rápido de descartes (tipo, quantidade, endereço com CEP e GPS simplificado), gravação no Firestore (`saveCitizenDiscard`), histórico com busca e filtros, dicas, pontos com rotas, auto-sync, **Login com Google (Firebase Auth)** e **Perfil do Cidadão**. |
+| **EcoSmart Empresa/Catador** | Coletor | `8082` | Feed de descartes com distâncias geográficas (Haversine), ouvintes em tempo real (`onSnapshot`), ordenação por proximidade, rota GPS e baixa de coleta em 1 toque no card, auto-sync, **Login com Google (Firebase Auth)** e **Perfil Operacional**. |
+| **EcoSmart Admin** | Administrador | `8083` | **Login com Google / Chave Mestre (ADMIN2026)**, CRUDs de resíduos, pontos e dicas com busca em tempo real, dashboard e exportação de Relatórios ESG (CSV) e **Perfil de Gestão Master**. |
 
-## Funcionalidades Implementadas
+---
 
-### Login e cadastro
+## 💡 Princípio de Design: Simplicidade e Fácil Acesso
 
-Os três apps possuem uma tela inicial de autenticação com alternância entre **Entrar** e **Cadastrar**. O cadastro é local e simples, voltado para demonstração do MVP.
+* **Interface Descomplicada:** Foco na utilidade imediata — sem formulários extensos, fluxos pesados de upload ou leitores de QR Code.
+* **Operação em 1 Toque:** Coletores podem verificar o endereço, traçar a melhor rota GPS e confirmar o recolhimento diretamente no card do descarte.
+* **Resiliência Offline:** Funciona sem conexão à internet e sincroniza automaticamente quando restabelecida.
 
-Credenciais de teste:
+---
 
-| Perfil | E-mail | Senha |
-|---|---|---|
-| Admin | `joao@gmail.com` | `1234` |
-| Cidadão | `maria@gmail.com` | `1234` |
-| Coletor | `lucas@gmail.com` | `1234` |
+## 🔄 Métodos de Sincronização & Persistência Local Isolada
 
-### EcoSmart Cidadão
+1. **Servidor Centralizado Backend (Node.js REST na Porta 3333):**
+   * Endpoint de mutação rápida HTTP (`POST /api/discards`, `POST /api/discards/:id/collect`, `DELETE /api/discards/:id`).
+   * Auto-iniciado automaticamente em segundo plano ao executar qualquer aplicativo.
 
-- [x] Login e cadastro simples.
-- [x] Tela inicial com navegação.
-- [x] Cadastro de descarte.
-- [x] Seleção de tipo de resíduo.
-- [x] Histórico de descartes.
-- [x] Dicas educativas.
-- [x] Pontos de coleta.
-- [x] Persistência local dos descartes com AsyncStorage.
-- [x] Testes básicos da Home.
+2. **Banco de Dados em Tempo Real (Firebase Cloud Firestore):**
+   * Listeners nativos **`onSnapshot`** em [`firebaseService.ts`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre/DESENVOLVIMENTO%20DE%20SISTEMAS%20PARA%20DISPOSITIVOS%20M%C3%93VEIS/Ecosmart_DMM---Mobile/shared/services/firebaseService.ts) para atualização instantânea sem recarregamento.
+   * Persistência explícita de descartes na coleção `descartes` através de `saveCitizenDiscard()`.
 
-### EcoSmart Empresa/Catador
+3. **Persistência Local Isolada por Aplicativo (`AsyncStorage`):**
+   * Cada aplicativo mantém seus dados locais sob namespace próprio (`@ecosmart_cidadao_*`, `@ecosmart_coletor_*`, `@ecosmart_admin_*`), garantindo que o app Cidadão salve e exiba apenas seus próprios descartes locais.
 
-- [x] Login e cadastro simples.
-- [x] Tela inicial com navegação.
-- [x] Lista de descartes disponíveis.
-- [x] Filtro por tipo de resíduo.
-- [x] Tela de detalhes do descarte.
-- [x] Marcar descarte como coletado.
-- [x] Lista de coletas realizadas.
+---
 
-### EcoSmart Admin
+## 📂 Executáveis e Automação (.bat no Windows)
 
-- [x] Login e cadastro simples.
-- [x] Tela inicial administrativa.
-- [x] Gerenciar tipos de resíduos.
-- [x] Gerenciar pontos de coleta.
-- [x] Gerenciar dicas educativas.
-- [x] Visualizar registros gerais.
-- [x] Filtrar registros por status.
-- [x] Resumo de registros pendentes, visualizados e coletados.
+A pasta [`executaveis/`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre/DESENVOLVIMENTO%20DE%20SISTEMAS%20PARA%20DISPOSITIVOS%20M%C3%93VEIS/Ecosmart_DMM---Mobile/executaveis/) possui scripts prontos com duplo clique:
 
-## Tecnologias
+| Arquivo | Função | Porta |
+| :--- | :--- | :--- |
+| **`MENU-ECOSMART.bat`** | **Painel Principal Interativo:** Menu completo para controlar todos os apps, testes, servidor e Firebase. | — |
+| **`1-instalar-dependencias.bat`** | Instala as dependências de todo o monorepo e dos 3 frontends. | — |
+| **`2-executar-testes.bat`** | Roda `sync:shared`, checagem TypeScript (`tsc --noEmit`), testes Jest e diagnóstico. | — |
+| **`3-iniciar-cidadao.bat`** | Inicia servidor backend + Firebase e abre o **EcoSmart Cidadão**. | `8081` |
+| **`4-iniciar-coletor.bat`** | Inicia servidor backend + Firebase e abre o **EcoSmart Coletor**. | `8082` |
+| **`5-iniciar-admin.bat`** | Inicia servidor backend + Firebase e abre o **EcoSmart Admin**. | `8083` |
+| **`6-sincronizar-modulos.bat`** | Sincroniza imediatamente o diretório `shared/` com os frontends. | — |
+| **`7-testar-comunicacao.bat`** | Executa o teste de criação e diagnóstico de sync (API + Firebase). | — |
+| **`8-iniciar-servidor.bat`** | Inicia o Servidor Backend REST centralizado de sincronização. | `3333` |
 
-| Tecnologia | Uso |
-|---|---|
-| **React Native** | Desenvolvimento mobile |
-| **Expo SDK 54** | Execução e empacotamento dos apps |
-| **TypeScript** | Tipagem e organização do código |
-| **AsyncStorage** | Persistência local no app Cidadão |
-| **Jest / jest-expo** | Testes do app Cidadão |
-| **Git e GitHub** | Versionamento |
+---
 
-## Estrutura do Repositório
+## 🧪 Qualidade e Testes Automatizados
 
-```text
-Ecosmart_DMM---Mobile/
-├── README.md
-├── docs/
-│   ├── arquitetura.md
-│   ├── comandos-git.md
-│   ├── jornadas.md
-│   ├── lean-canvas.md
-│   ├── personas.md
-│   ├── requisitos.md
-│   └── roadmap.md
-├── apps/
-│   ├── ecosmart-cidadao/
-│   ├── ecosmart-coletor/
-│   └── ecosmart-admin/
-├── shared/
-│   ├── models/
-│   ├── services/
-│   ├── components/
-│   ├── utils/
-│   └── theme/
-└── assets/
-    ├── images/
-    ├── icons/
-    └── screenshots/
-```
-
-## Modelos Compartilhados
-
-O diretório `shared/models` concentra os principais tipos do ecossistema:
-
-- `PerfilUsuario`
-- `Usuario`
-- `AuthUserInput`
-- `Descarte`
-- `DiscardItem`
-- `CollectorDiscard`
-- `WasteTypeItem`
-- `CollectionPointItem`
-- `EducationalTipItem`
-- `AdminDiscardRecord`
-
-Os apps usam esses modelos como imports de tipo, mantendo a organização sem criar dependências de execução entre as pastas dos apps.
-
-## Como Executar
-
-Instale as dependências dentro do app desejado e inicie com Expo:
-
-### App Cidadão
+O ecossistema conta com **74 suítes de testes** e **383 testes automatizados** (100% de sucesso):
 
 ```bash
-cd apps/ecosmart-cidadao
-npm install
-npx expo start
+# Executa todos os testes dos 3 aplicativos
+npm run test:all
+
+# Executa diagnóstico prático de comunicação da API e Firebase
+npm run test:communication
+
+# Executa verificação estática de tipos TypeScript
+npm run typecheck:all
 ```
 
-### App Empresa/Catador
+---
 
+## 🚀 Como Iniciar o Projeto
+
+### Iniciar Aplicativos Individualmente (com Auto-Servidor e Firebase):
 ```bash
-cd apps/ecosmart-coletor
-npm install
-npx expo start
+# Iniciar EcoSmart Cidadão (Porta 8081)
+npm run start:cidadao
+
+# Iniciar EcoSmart Coletor (Porta 8082)
+npm run start:coletor
+
+# Iniciar EcoSmart Admin (Porta 8083)
+npm run start:admin
 ```
-
-### App Admin
-
-```bash
-cd apps/ecosmart-admin
-npm install
-npx expo start
-```
-
-Para rodar os três ao mesmo tempo, use portas diferentes:
-
-```bash
-cd apps/ecosmart-cidadao
-npx expo start --port 8081
-```
-
-```bash
-cd apps/ecosmart-coletor
-npx expo start --port 8082
-```
-
-```bash
-cd apps/ecosmart-admin
-npx expo start --port 8083
-```
-
-Depois, abra o QR code no **Expo Go** no iOS ou Android.
-
-> Em redes institucionais, o Android pode não conseguir acessar o computador pela rede local. Nesse caso, use uma rede particular, hotspot ou o modo tunnel do Expo.
-
-## Validação
-
-Comando usado para validar TypeScript em cada app:
-
-```bash
-npx tsc --noEmit
-```
-
-No app Cidadão:
-
-```bash
-npm test
-```
-
-Checagem recomendada antes de uma entrega final:
-
-```bash
-npx expo-doctor
-```
-
-## Limitações Atuais
-
-- O projeto ainda não possui backend.
-- Login e cadastro são locais e simplificados para teste do MVP.
-- Dados de Admin e Coletor usam estado local/mockado.
-- Integração com Firebase, Supabase ou API própria fica para uma etapa futura.
-
-## Próximos Passos
-
-- Melhorar teste em Android usando tunnel ou rede sem bloqueio.
-- Adicionar persistência local também no Coletor e Admin.
-- Substituir `SafeAreaView` deprecated por `react-native-safe-area-context`.
-- Criar testes básicos para Coletor e Admin.
-- Planejar backend para autenticação, descartes, pontos de coleta e dicas.
-
-## Licença
-
-Projeto acadêmico desenvolvido para fins de aprendizagem.

@@ -1,0 +1,34 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Permite leitura e escrita em todas as coleções para integração fluida entre os apps e Firebase
+    match /usuarios/{userId} {
+      allow read, write: if true;
+    }
+
+    match /descartes/{discardId} {
+      allow read, write: if true;
+    }
+
+    match /tipos_residuos/{typeId} {
+      allow read, write: if true;
+    }
+
+    match /pontos_coleta/{pointId} {
+      allow read, write: if true;
+    }
+
+    match /dicas_educativas/{tipId} {
+      allow read, write: if true;
+    }
+
+    match /notificacoes/{notificationId} {
+      allow read, write: if true;
+    }
+
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
+

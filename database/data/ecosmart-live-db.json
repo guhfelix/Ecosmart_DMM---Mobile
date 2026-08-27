@@ -1,0 +1,49 @@
+{
+  "discards": [],
+  "users": [
+    {
+      "id": "user-admin-1",
+      "nome": "João Gestor SEMATUR",
+      "email": "joao@gmail.com",
+      "perfil": "admin",
+      "telefone": "(65) 3223-5500",
+      "cep": "78200-000",
+      "endereco": "Rua Cel. José Dulce",
+      "numero": "500",
+      "bairro": "Centro",
+      "cidade": "Cáceres - MT",
+      "cargo": "Secretário Municipal de Meio Ambiente",
+      "departamento": "SEMATUR - Cáceres MT",
+      "bio": "Gestão e monitoramento ambiental do município de Cáceres - MT."
+    },
+    {
+      "id": "user-cidadao-1",
+      "nome": "Maria Cidadã Pantaneira",
+      "email": "maria@gmail.com",
+      "perfil": "cidadao",
+      "telefone": "(65) 99988-1234",
+      "cep": "78200-050",
+      "endereco": "Rua Cel. Faria",
+      "numero": "210",
+      "bairro": "Centro",
+      "cidade": "Cáceres - MT",
+      "bio": "Compromissada com a preservação do Pantanal e a reciclagem em Cáceres - MT."
+    },
+    {
+      "id": "user-coletor-1",
+      "nome": "Lucas Coletor COOPERCÁCERES",
+      "email": "lucas@gmail.com",
+      "perfil": "coletor",
+      "telefone": "(65) 99654-7890",
+      "cep": "78205-100",
+      "endereco": "Av. Getúlio Vargas",
+      "numero": "1420",
+      "bairro": "Santos Dumont",
+      "cidade": "Cáceres - MT",
+      "veiculo": "Caminhonete de Coleta Seletiva",
+      "capacidadeCarga": "1.200 kg",
+      "bio": "Coleta seletiva diária em Cáceres e suporte a cooperativas locais."
+    }
+  ],
+  "lastUpdated": "2026-08-27T12:35:59.329Z"
+}

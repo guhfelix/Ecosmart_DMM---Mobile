@@ -1,7 +1,37 @@
+# Dependências
 node_modules/
+package-lock.json.bak
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Expo & React Native
 .expo/
 dist/
+web-build/
+*.tsbuildinfo
+
+# Variáveis de Ambiente & Segredos
 .env
-.DS_Store
+.env*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs e Depuração do Firebase
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+.firebase/
+.dataconnect/
+
+# Testes e Cobertura
 coverage/
 jest-results.json
+
+# Sistema Operacional
+.DS_Store
+Thumbs.db
+*.tmp
+*.bak

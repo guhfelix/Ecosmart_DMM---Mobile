@@ -1,0 +1,42 @@
+{
+  "name": "ecosmart-mobile-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Ecossistema mobile para descarte sustentável de resíduos e logística reversa",
+  "scripts": {
+    "sync:shared": "node scripts/sync-shared.js",
+    "server": "node scripts/sync-server.js",
+    "start:server": "node scripts/sync-server.js",
+    "dev": "node scripts/start-all.js",
+    "start:all": "node scripts/start-all.js",
+    "test:cidadao": "cd frontend/ecosmart-cidadao && npm test",
+    "test:coletor": "cd frontend/ecosmart-coletor && npm test",
+    "test:admin": "cd frontend/ecosmart-admin && npm test",
+    "test:all": "node scripts/sync-shared.js && cd frontend/ecosmart-cidadao && npm test && cd ../ecosmart-coletor && npm test && cd ../ecosmart-admin && npm test",
+    "test:coverage:cidadao": "cd frontend/ecosmart-cidadao && npm run test:coverage",
+    "test:coverage:coletor": "cd frontend/ecosmart-coletor && npm run test:coverage",
+    "test:coverage:admin": "cd frontend/ecosmart-admin && npm run test:coverage",
+    "test:coverage": "node scripts/sync-shared.js && cd frontend/ecosmart-cidadao && npm run test:coverage && cd ../ecosmart-coletor && npm run test:coverage && cd ../ecosmart-admin && npm run test:coverage",
+    "typecheck:cidadao": "cd frontend/ecosmart-cidadao && npx tsc --noEmit",
+    "typecheck:coletor": "cd frontend/ecosmart-coletor && npx tsc --noEmit",
+    "typecheck:admin": "cd frontend/ecosmart-admin && npx tsc --noEmit",
+    "typecheck:all": "cd frontend/ecosmart-cidadao && npx tsc --noEmit && cd ../ecosmart-coletor && npx tsc --noEmit && cd ../ecosmart-admin && npx tsc --noEmit",
+    "start:cidadao": "node scripts/sync-shared.js && node scripts/ensure-server.js && cd frontend/ecosmart-cidadao && npx expo start --port 8081",
+    "start:coletor": "node scripts/sync-shared.js && node scripts/ensure-server.js && cd frontend/ecosmart-coletor && npx expo start --port 8082",
+    "start:admin": "node scripts/sync-shared.js && node scripts/ensure-server.js && cd frontend/ecosmart-admin && npx expo start --port 8083",
+    "test:communication": "node scripts/test-communication.js"
+  },
+  "keywords": [
+    "react-native",
+    "expo",
+    "sustainability",
+    "esg",
+    "recycling",
+    "offline-first"
+  ],
+  "author": "EcoSmart Mobile Team",
+  "license": "ISC",
+  "dependencies": {
+    "@dataconnect/generated": "file:src/dataconnect-generated"
+  }
+}

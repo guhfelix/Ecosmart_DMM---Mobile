@@ -9,7 +9,7 @@ describe('HomeScreen Admin', () => {
     const { getByText } = render(<HomeScreen onNavigate={onNavigate} />);
 
     expect(getByText('EcoSmart Admin')).toBeTruthy();
-    expect(getByText('Perfil Administrador')).toBeTruthy();
+    expect(getByText(/Meu Perfil/)).toBeTruthy();
     expect(getByText('Registros gerais')).toBeTruthy();
   });
 

@@ -4,7 +4,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,9 +11,13 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FeedbackMessage } from '../components/FeedbackMessage';
+import { PrimaryButton } from '../components/PrimaryButton';
+import { ScreenHeader } from '../components/ScreenHeader';
 import { AdminDiscardRecord, CollectionPointItem, WasteTypeItem } from '../data/mockData';
 import { Usuario } from '../models';
 import { colors } from '../theme/colors';
+import { radius, spacing } from '../theme/layout';
 import { cepService, formatCep } from '../services/cepService';
 
 type Props = {
@@ -50,6 +53,8 @@ export function ProfileScreen({
   );
   const [isSearchingCep, setIsSearchingCep] = useState(false);
   const [cepFeedback, setCepFeedback] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   // --- Métricas Gerais de Controle ---
   const totalRecords = records.length;
@@ -84,9 +89,11 @@ export function ProfileScreen({
 
   const handleSave = () => {
     if (!nome.trim()) {
+      setNameError('Informe seu nome.');
       Alert.alert('Campo Obrigatório', 'Por favor, informe seu nome.');
       return;
     }
+    setNameError(null);
 
     const updated: Usuario = {
       ...user,
@@ -104,13 +111,14 @@ export function ProfileScreen({
     };
 
     onUpdateUser(updated);
-    Alert.alert('Perfil Atualizado', 'Os dados do administrador e da sede institucional foram salvos com sucesso!');
+    setFeedback('✓ Perfil atualizado com sucesso.');
   };
 
   return (
     <SafeAreaView style={styles.container}>
+      <ScreenHeader title="Perfil" subtitle="Gestor e governança do sistema." onBack={onBack} />
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.select({ ios: 'padding', android: 'height' })}
         style={styles.keyboardView}
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -138,11 +146,11 @@ export function ProfileScreen({
               <Text style={styles.metricLabel}>Taxa de reciclagem</Text>
             </View>
             <View style={styles.metricCard}>
-              <Text style={[styles.metricValue, { color: '#2E7D32' }]}>{wasteTypes.length}</Text>
+              <Text style={[styles.metricValue, { color: colors.primary }]}>{wasteTypes.length}</Text>
               <Text style={styles.metricLabel}>Tipos de resíduos</Text>
             </View>
             <View style={styles.metricCard}>
-              <Text style={[styles.metricValue, { color: '#1565C0' }]}>{collectionPoints.length}</Text>
+              <Text style={[styles.metricValue, { color: colors.secondary }]}>{collectionPoints.length}</Text>
               <Text style={styles.metricLabel}>Pontos cadastrados</Text>
             </View>
           </View>
@@ -152,12 +160,17 @@ export function ProfileScreen({
           <View style={styles.form}>
             <Text style={styles.label}>Nome do Administrador</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, nameError && styles.inputError]}
               value={nome}
-              onChangeText={setNome}
+              onChangeText={(text) => {
+                setNome(text);
+                if (nameError) setNameError(null);
+              }}
               placeholder="Seu nome"
               placeholderTextColor={colors.muted}
+              returnKeyType="next"
             />
+            {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
 
             <Text style={styles.label}>Telefone Institucional</Text>
             <TextInput
@@ -249,16 +262,16 @@ export function ProfileScreen({
               numberOfLines={3}
             />
 
-            <Pressable testID="save-profile-button" style={styles.saveButton} onPress={handleSave}>
-              <Text style={styles.saveButtonText}>💾 Salvar Alterações</Text>
-            </Pressable>
+            <PrimaryButton
+              title="Salvar alterações"
+              onPress={handleSave}
+              testID="save-profile-button"
+              style={styles.saveButton}
+            />
           </View>
-
-          <Pressable style={styles.backButton} onPress={onBack}>
-            <Text style={styles.backButtonText}>Voltar</Text>
-          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
+      <FeedbackMessage message={feedback} onHide={() => setFeedback(null)} />
     </SafeAreaView>
   );
 }
@@ -272,14 +285,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 20,
+    padding: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: 36,
   },
   header: {
     alignItems: 'center',
     marginBottom: 20,
     backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
     borderWidth: 1,
     borderColor: '#E0E0E0',
   },
@@ -310,12 +325,12 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   levelBadge: {
-    backgroundColor: '#EDE7F6',
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#D1C4E9',
+    borderColor: colors.primaryMuted,
   },
   levelBadgeText: {
     color: colors.primary,
@@ -356,8 +371,8 @@ const styles = StyleSheet.create({
   },
   form: {
     backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
     borderWidth: 1,
     borderColor: '#E0E0E0',
     marginBottom: 20,
@@ -379,11 +394,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F9FA',
     borderWidth: 1,
     borderColor: '#DADCE0',
-    borderRadius: 10,
+    borderRadius: radius.sm,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
     color: colors.text,
+  },
+  inputError: {
+    borderColor: colors.danger,
+    backgroundColor: colors.dangerSoft,
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: spacing.xs,
   },
   textArea: {
     minHeight: 70,
@@ -391,33 +416,11 @@ const styles = StyleSheet.create({
   },
   cepFeedbackText: {
     fontSize: 12,
-    color: '#2E7D32',
+    color: colors.success,
     marginTop: 4,
     fontWeight: '600',
   },
   saveButton: {
-    backgroundColor: '#2E7D32',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
     marginTop: 20,
-  },
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  backButton: {
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: '#DADCE0',
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  backButtonText: {
-    color: colors.text,
-    fontWeight: '700',
   },
 });

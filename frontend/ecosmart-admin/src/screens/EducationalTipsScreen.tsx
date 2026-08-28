@@ -1,16 +1,20 @@
 import React, { useMemo, useState } from 'react';
 import {
+  Pressable,
   Alert,
   FlatList,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { EmptyState } from '../components/EmptyState';
+import { PrimaryButton } from '../components/PrimaryButton';
+import { ScreenHeader } from '../components/ScreenHeader';
 import { EducationalTipItem } from '../data/mockData';
 import { colors } from '../theme/colors';
+import { radius, spacing } from '../theme/layout';
 
 type EducationalTipForm = {
   id?: string;
@@ -94,10 +98,11 @@ export function EducationalTipsScreen({ items, onSave, onDelete, onBack, isOffli
         contentContainerStyle={styles.content}
         ListHeaderComponent={
           <>
-            <View style={styles.header}>
-              <Text style={styles.title}>Gerenciar dicas</Text>
-              <Text style={styles.subtitle}>Cadastre conteúdos educativos sobre sustentabilidade.</Text>
-            </View>
+            <ScreenHeader
+              title="Gerenciar dicas"
+              subtitle="Cadastre conteúdos educativos sobre sustentabilidade."
+              onBack={onBack}
+            />
 
             <View style={styles.form}>
               <Text style={styles.formTitle}>{editingId ? 'Editar dica educativa' : 'Nova dica educativa'}</Text>
@@ -131,9 +136,11 @@ export function EducationalTipsScreen({ items, onSave, onDelete, onBack, isOffli
                 numberOfLines={4}
               />
 
-              <Pressable style={styles.primaryButton} onPress={handleSave}>
-                <Text style={styles.primaryButtonText}>{editingId ? 'Salvar alterações' : 'Cadastrar dica'}</Text>
-              </Pressable>
+              <PrimaryButton
+                title={editingId ? 'Salvar alterações' : 'Cadastrar dica'}
+                onPress={handleSave}
+                style={styles.primaryButton}
+              />
 
               {editingId ? (
                 <Pressable style={styles.secondaryButton} onPress={resetForm}>
@@ -161,11 +168,7 @@ export function EducationalTipsScreen({ items, onSave, onDelete, onBack, isOffli
             </View>
           </>
         }
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>Nenhuma dica encontrada para esta busca.</Text>
-          </View>
-        }
+        ListEmptyComponent={<EmptyState title="Nenhuma dica encontrada." message="Cadastre uma dica ou ajuste a busca." />}
         renderItem={({ item }) => (
           <View style={styles.card}>
             <View style={styles.cardTop}>
@@ -177,20 +180,15 @@ export function EducationalTipsScreen({ items, onSave, onDelete, onBack, isOffli
             <Text style={styles.cardText}>{item.content}</Text>
 
             <View style={styles.actions}>
-              <Pressable style={styles.actionButton} onPress={() => handleEdit(item)}>
+              <Pressable style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]} onPress={() => handleEdit(item)}>
                 <Text style={styles.actionButtonText}>Editar</Text>
               </Pressable>
-              <Pressable style={[styles.actionButton, styles.dangerButton]} onPress={() => handleDelete(item.id)}>
+              <Pressable style={({ pressed }) => [styles.actionButton, styles.dangerButton, pressed && styles.pressed]} onPress={() => handleDelete(item.id)}>
                 <Text style={styles.dangerButtonText}>Excluir</Text>
               </Pressable>
             </View>
           </View>
         )}
-        ListFooterComponent={
-          <Pressable style={styles.backButton} onPress={onBack}>
-            <Text style={styles.backButtonText}>Voltar</Text>
-          </Pressable>
-        }
       />
     </SafeAreaView>
   );
@@ -202,7 +200,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    padding: 20,
+    paddingBottom: 28,
+  },
+  pressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.99 }],
   },
   header: {
     backgroundColor: colors.primary,
@@ -216,7 +218,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   subtitle: {
-    color: '#F3E5F5',
+    color: colors.primarySoft,
     fontSize: 14,
     lineHeight: 20,
     marginTop: 6,
@@ -224,10 +226,11 @@ const styles = StyleSheet.create({
   form: {
     backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 14,
-    padding: 16,
+    borderColor: colors.cardBorder,
+    borderRadius: radius.md,
+    padding: spacing.md,
     marginBottom: 18,
+    marginHorizontal: spacing.lg,
   },
   formTitle: {
     color: colors.text,
@@ -245,8 +248,8 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: '#FAFAFA',
     borderWidth: 1,
-    borderColor: '#DADCE0',
-    borderRadius: 12,
+    borderColor: colors.border,
+    borderRadius: radius.md,
     color: colors.text,
     fontSize: 15,
     padding: 12,
@@ -256,16 +259,7 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    alignItems: 'center',
-    paddingVertical: 14,
     marginTop: 18,
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '800',
   },
   secondaryButton: {
     borderWidth: 1,
@@ -284,19 +278,21 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     marginBottom: 10,
+    marginHorizontal: spacing.lg,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
+    marginHorizontal: spacing.lg,
     position: 'relative',
   },
   searchInput: {
     flex: 1,
     backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#DADCE0',
-    borderRadius: 12,
+    borderColor: colors.border,
+    borderRadius: radius.md,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
@@ -315,10 +311,11 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
+    borderColor: colors.cardBorder,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    marginHorizontal: spacing.lg,
   },
   cardTop: {
     flexDirection: 'row',
@@ -333,7 +330,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   badge: {
-    backgroundColor: '#F3E5F5',
+    backgroundColor: colors.primarySoft,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,

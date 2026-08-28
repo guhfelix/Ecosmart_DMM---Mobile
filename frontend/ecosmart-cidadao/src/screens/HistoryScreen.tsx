@@ -1,25 +1,36 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, FlatList, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { EmptyState } from '../components/EmptyState';
+import { ScreenHeader } from '../components/ScreenHeader';
+import { StatusBadge } from '../components/StatusBadge';
+import type { DiscardItem } from '../models';
 import { colors } from '../theme/colors';
-import { DiscardItem } from './RegisterDiscardScreen';
+import { radius, shadow, spacing } from '../theme/layout';
 
 type FilterType = 'todos' | 'pendente' | 'coletado' | 'offline';
 
 type Props = {
   items: DiscardItem[];
-  onDelete?: (id: string) => void;
+  onOpenDetails?: (item: DiscardItem) => void;
+  onRegister?: () => void;
   onBack: () => void;
 };
 
-export function HistoryScreen({ items, onDelete, onBack }: Props) {
+export function HistoryScreen({ items, onOpenDetails, onRegister, onBack }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<FilterType>('todos');
 
   const filteredItems = useMemo(() => {
     let result = items;
 
-    // Filtro por status
     if (statusFilter === 'pendente') {
       result = result.filter((i) => i.status === 'Pendente');
     } else if (statusFilter === 'coletado') {
@@ -28,7 +39,6 @@ export function HistoryScreen({ items, onDelete, onBack }: Props) {
       result = result.filter((i) => i.status === 'Pendente (Offline)' || i.offline);
     }
 
-    // Busca textual em tempo real
     const q = searchQuery.trim().toLowerCase();
     if (q) {
       result = result.filter(
@@ -45,12 +55,12 @@ export function HistoryScreen({ items, onDelete, onBack }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Histórico</Text>
-        <Text style={styles.subtitle}>Seus descartes registrados e status de coleta.</Text>
-      </View>
+      <ScreenHeader
+        title="Histórico"
+        subtitle="Seus descartes registrados e status de coleta."
+        onBack={onBack}
+      />
 
-      {/* Busca em tempo real */}
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
@@ -66,7 +76,6 @@ export function HistoryScreen({ items, onDelete, onBack }: Props) {
         ) : null}
       </View>
 
-      {/* Filtros por Chip */}
       <View style={styles.filterRow}>
         {(
           [
@@ -78,7 +87,12 @@ export function HistoryScreen({ items, onDelete, onBack }: Props) {
         ).map((f) => (
           <Pressable
             key={f.value}
-            style={[styles.filterChip, statusFilter === f.value && styles.filterChipActive]}
+            android_ripple={{ color: colors.primarySoft }}
+            style={({ pressed }) => [
+              styles.filterChip,
+              statusFilter === f.value && styles.filterChipActive,
+              pressed && styles.pressed,
+            ]}
             onPress={() => setStatusFilter(f.value)}
           >
             <Text
@@ -93,92 +107,54 @@ export function HistoryScreen({ items, onDelete, onBack }: Props) {
         ))}
       </View>
 
-      {filteredItems.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyText}>Nenhum descarte encontrado com os filtros atuais.</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={filteredItems}
-          contentContainerStyle={styles.list}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => {
-            const isOffline = item.status === 'Pendente (Offline)' || item.offline;
-            const isDone = item.status === 'Coletado';
+      <FlatList
+        data={filteredItems}
+        contentContainerStyle={filteredItems.length === 0 ? styles.emptyList : styles.list}
+        keyExtractor={(item) => item.id}
+        ListEmptyComponent={
+          <EmptyState
+            title={
+              items.length === 0
+                ? 'Você ainda não registrou nenhum descarte.'
+                : 'Nenhum descarte encontrado.'
+            }
+            message={
+              items.length === 0
+                ? 'Quando registrar um descarte, ele aparecerá aqui.'
+                : 'Ajuste os filtros ou a busca para encontrar outro registro.'
+            }
+            actionLabel={items.length === 0 ? 'Registrar descarte' : undefined}
+            onAction={items.length === 0 ? onRegister : undefined}
+          />
+        }
+        renderItem={({ item }) => {
+          const isOffline = item.status === 'Pendente (Offline)' || item.offline;
+          const isDone = item.status === 'Coletado';
 
-            return (
-              <View style={styles.itemCard}>
-                <View style={styles.itemTop}>
-                  <Text style={styles.itemType}>{item.type}</Text>
-                  <Text
-                    style={[
-                      styles.status,
-                      isDone
-                        ? styles.statusDone
-                        : isOffline
-                        ? styles.statusOffline
-                        : styles.statusPending,
-                    ]}
-                  >
-                    {item.status}
-                  </Text>
-                </View>
-
-                <Text style={styles.itemMeta}>Quantidade: {item.quantity}</Text>
-                <Text style={styles.itemMeta}>Data: {item.date}</Text>
-
-                {item.cep ? (
-                  <Text style={styles.itemMeta}>CEP: {item.cep}</Text>
-                ) : null}
-
-                {item.address ? (
-                  <Text style={styles.itemMeta}>Endereço: {item.address}</Text>
-                ) : null}
-
-                {item.neighborhood ? (
-                  <Text style={styles.itemMeta}>Bairro: {item.neighborhood} - {item.city || 'Cáceres'}/MT</Text>
-                ) : null}
-
-                {item.latitude && item.longitude ? (
-                  <Text style={styles.gpsInfo}>
-                    📍 Cáceres/MT: Lat {item.latitude.toFixed(4)}, Lon {item.longitude.toFixed(4)}
-                  </Text>
-                ) : null}
-
-                {item.observation ? (
-                  <Text style={styles.itemObservation}>{item.observation}</Text>
-                ) : null}
-
-                {onDelete ? (
-                  <Pressable
-                    style={styles.deleteButton}
-                    onPress={() => {
-                      Alert.alert(
-                        '🗑️ Excluir Descarte',
-                        `Tem certeza que deseja apagar o registro de descarte de ${item.type}?`,
-                        [
-                          { text: 'Cancelar', style: 'cancel' },
-                          {
-                            text: 'Sim, Excluir',
-                            style: 'destructive',
-                            onPress: () => onDelete(item.id),
-                          },
-                        ]
-                      );
-                    }}
-                  >
-                    <Text style={styles.deleteButtonText}>🗑️ Apagar Descarte</Text>
-                  </Pressable>
-                ) : null}
+          return (
+            <Pressable
+              android_ripple={{ color: colors.primarySoft }}
+              onPress={() => onOpenDetails?.(item)}
+              style={({ pressed }) => [styles.itemCard, pressed && styles.cardPressed]}
+            >
+              <View style={styles.itemTop}>
+                <Text style={styles.itemType}>{item.type}</Text>
+                <StatusBadge
+                  label={item.status}
+                  variant={isDone ? 'success' : isOffline ? 'danger' : 'warning'}
+                />
               </View>
-            );
-          }}
-        />
-      )}
 
-      <Pressable style={styles.backButton} onPress={onBack}>
-        <Text style={styles.backButtonText}>Voltar</Text>
-      </Pressable>
+              <Text style={styles.itemQuantity}>{item.quantity}</Text>
+              <View style={styles.itemFooter}>
+                <Text style={styles.itemMeta}>{item.date}</Text>
+                {item.neighborhood ? <Text style={styles.itemMeta}>{item.neighborhood}</Text> : null}
+                <Text style={styles.chevron}>›</Text>
+              </View>
+            </Pressable>
+          );
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -188,37 +164,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
-    backgroundColor: colors.primary,
-    padding: 20,
-    borderRadius: 16,
-    marginHorizontal: 20,
-    marginTop: 20,
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#E8F5E9',
-    marginTop: 6,
+  pressed: {
+    opacity: 0.82,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 20,
-    marginBottom: 10,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
     position: 'relative',
   },
   searchInput: {
     flex: 1,
     backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#DADCE0',
-    borderRadius: 12,
+    borderColor: colors.border,
+    borderRadius: radius.md,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
@@ -227,7 +189,7 @@ const styles = StyleSheet.create({
   clearButton: {
     position: 'absolute',
     right: 12,
-    padding: 4,
+    padding: spacing.xs,
   },
   clearButtonText: {
     color: colors.muted,
@@ -236,15 +198,15 @@ const styles = StyleSheet.create({
   },
   filterRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginHorizontal: 20,
-    marginBottom: 12,
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
   },
   filterChip: {
-    backgroundColor: '#E8F5E9',
-    paddingVertical: 6,
+    backgroundColor: colors.primarySoft,
+    paddingVertical: 7,
     paddingHorizontal: 12,
-    borderRadius: 999,
+    borderRadius: radius.pill,
   },
   filterChipActive: {
     backgroundColor: colors.primary,
@@ -252,114 +214,68 @@ const styles = StyleSheet.create({
   filterChipText: {
     color: colors.text,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   filterChipTextActive: {
-    color: '#FFFFFF',
+    color: colors.white,
   },
   list: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: 28,
+  },
+  emptyList: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: 28,
+    justifyContent: 'center',
   },
   itemCard: {
+    ...shadow.card,
     backgroundColor: colors.card,
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: colors.cardBorder,
+    shadowColor: colors.primaryDark,
+  },
+  cardPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.99 }],
   },
   itemTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
   },
   itemType: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 17,
+    fontWeight: '900',
     color: colors.text,
+    flex: 1,
   },
-  itemImage: {
-    width: '100%',
-    height: 140,
-    borderRadius: 10,
-    marginBottom: 10,
-  },
-  status: {
-    fontSize: 12,
+  itemQuantity: {
+    color: colors.text,
+    fontSize: 15,
     fontWeight: '700',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
+    marginBottom: spacing.xs,
   },
-  statusPending: {
-    backgroundColor: '#FFF3E0',
-    color: '#E65100',
-  },
-  statusOffline: {
-    backgroundColor: '#FFEBEE',
-    color: '#C62828',
-  },
-  statusDone: {
-    backgroundColor: '#E8F5E9',
-    color: '#2E7D32',
+  itemFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   itemMeta: {
     color: colors.muted,
-    fontSize: 14,
-    marginBottom: 4,
-  },
-  gpsInfo: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: '700',
-    marginVertical: 4,
-  },
-  itemObservation: {
-    color: colors.text,
-    fontSize: 14,
-    marginTop: 6,
-    lineHeight: 20,
-  },
-  deleteButton: {
-    marginTop: 10,
-    backgroundColor: '#FFEBEE',
-    borderWidth: 1,
-    borderColor: '#FFCDD2',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-  },
-  deleteButtonText: {
-    color: '#C62828',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
   },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  emptyText: {
-    color: colors.muted,
-    fontSize: 15,
-    textAlign: 'center',
-  },
-  backButton: {
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: '#DADCE0',
-    marginHorizontal: 20,
-    marginBottom: 20,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  backButtonText: {
-    color: colors.text,
-    fontWeight: '700',
+  chevron: {
+    color: colors.primary,
+    fontSize: 24,
+    fontWeight: '900',
+    marginLeft: 'auto',
   },
 });

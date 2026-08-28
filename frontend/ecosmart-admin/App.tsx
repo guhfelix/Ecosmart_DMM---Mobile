@@ -12,6 +12,9 @@ import { RecordsScreen } from './src/screens/RecordsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { NotificationModal } from './src/components/NotificationModal';
+import { ScreenTransition } from './src/components/ScreenTransition';
+import { LoadingScreen } from './src/components/LoadingScreen';
+import { FeedbackMessage } from './src/components/FeedbackMessage';
 
 // Modelos, Serviços e Hooks
 import { STORAGE_KEYS } from './src/services/storageKeys';
@@ -62,6 +65,7 @@ export default function App() {
   const [registeredUsers, setRegisteredUsers] = useState<RegisteredUser[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
 
   // Hook de conectividade
@@ -429,6 +433,7 @@ export default function App() {
     await crossAppSync.deleteDiscard(id);
     const notif = createNotification('Registro Excluído', `O registro de ${target?.wasteType || 'descarte'} foi removido.`, 'system');
     setNotifications((prev) => [notif, ...prev]);
+    setFeedback('✓ Registro excluído com sucesso.');
   };
 
   const unreadCount = useMemo(() => getUnreadNotificationCount(notifications), [notifications]);
@@ -505,6 +510,10 @@ export default function App() {
             onLogout={handleLogout}
             onOpenNotifications={() => setShowNotificationsModal(true)}
             unreadNotificationsCount={unreadCount}
+            wasteTypesCount={wasteTypes.length}
+            collectionPointsCount={collectionPoints.length}
+            recordsCount={records.length}
+            pendingRecordsCount={records.filter((item) => item.status === 'pendente').length}
           />
         );
     }
@@ -521,16 +530,30 @@ export default function App() {
     isOffline,
   ]);
 
+  if (!isReady) {
+    return (
+      <SafeAreaProvider>
+        <LoadingScreen />
+        <StatusBar style="light" />
+      </SafeAreaProvider>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <OfflineBanner isOffline={isOffline} />
-      {renderScreen}
+      {currentUser ? (
+        <ScreenTransition screenKey={screen}>{renderScreen}</ScreenTransition>
+      ) : (
+        renderScreen
+      )}
       <NotificationModal
         visible={showNotificationsModal}
         notifications={notifications}
         onClose={() => setShowNotificationsModal(false)}
         onMarkAllAsRead={() => setNotifications((prev) => markAllNotificationsAsRead(prev))}
       />
+      <FeedbackMessage message={feedback} onHide={() => setFeedback(null)} />
       <StatusBar style="light" />
     </SafeAreaProvider>
   );

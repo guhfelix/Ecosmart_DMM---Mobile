@@ -1,8 +1,18 @@
 import React from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { PrimaryButton } from '../components/PrimaryButton';
+import { ScreenHeader } from '../components/ScreenHeader';
 import { CollectorDiscard } from '../data/mockData';
 import { colors } from '../theme/colors';
+import { radius, spacing } from '../theme/layout';
 import { formatDistance } from '../utils/geoUtils';
 
 type Props = {
@@ -19,8 +29,6 @@ export function DiscardDetailsScreen({ item, onCollect, onBack, isOffline = fals
         'Modo Offline',
         'Você está offline. A coleta foi registrada localmente no dispositivo e será sincronizada quando houver conexão.'
       );
-    } else {
-      Alert.alert('Coleta registrada', 'O descarte foi marcado como coletado.');
     }
     onCollect(item.id);
   };
@@ -38,12 +46,12 @@ export function DiscardDetailsScreen({ item, onCollect, onBack, isOffline = fals
 
   return (
     <SafeAreaView style={styles.container}>
+      <ScreenHeader
+        title="Detalhes do descarte"
+        subtitle="Confira dados e rota antes da coleta."
+        onBack={onBack}
+      />
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Detalhes do descarte</Text>
-          <Text style={styles.subtitle}>Confira as informações, foto e rota antes de realizar a coleta.</Text>
-        </View>
-
         <View style={styles.card}>
           <View style={styles.cardTop}>
             <Text style={styles.wasteType}>{item.wasteType}</Text>
@@ -104,14 +112,13 @@ export function DiscardDetailsScreen({ item, onCollect, onBack, isOffline = fals
           ) : null}
 
           {!isCollected ? (
-            <Pressable style={styles.primaryButton} onPress={handleCollect} testID="collect-button">
-              <Text style={styles.primaryButtonText}>Marcar como coletado</Text>
-            </Pressable>
+            <PrimaryButton
+              title="Confirmar coleta"
+              onPress={handleCollect}
+              testID="collect-button"
+              style={styles.primaryButton}
+            />
           ) : null}
-
-          <Pressable style={styles.secondaryButton} onPress={onBack}>
-            <Text style={styles.secondaryButtonText}>Voltar</Text>
-          </Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -124,7 +131,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    padding: 20,
+    padding: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: 32,
   },
   header: {
     backgroundColor: colors.primary,
@@ -138,17 +147,17 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   subtitle: {
-    color: '#E3F2FD',
+    color: colors.primarySoft,
     fontSize: 14,
     marginTop: 6,
     lineHeight: 20,
   },
   card: {
     backgroundColor: colors.card,
-    borderRadius: 14,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: '#E0E0E0',
-    padding: 16,
+    padding: spacing.md,
   },
   cardTop: {
     flexDirection: 'row',
@@ -167,13 +176,13 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   distanceBadge: {
-    backgroundColor: '#E8F5E9',
-    borderRadius: 8,
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.sm,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   distanceBadgeText: {
-    color: '#2E7D32',
+    color: colors.primaryDark,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -185,12 +194,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   statusPending: {
-    backgroundColor: '#FFF3E0',
-    color: '#E65100',
+    backgroundColor: colors.warningSoft,
+    color: colors.warning,
   },
   statusDone: {
-    backgroundColor: '#E8F5E9',
-    color: '#2E7D32',
+    backgroundColor: colors.successSoft,
+    color: colors.success,
   },
   photoContainer: {
     marginBottom: 12,
@@ -230,10 +239,10 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   routeButton: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
     borderColor: colors.primary,
-    borderRadius: 10,
+    borderRadius: radius.sm,
     paddingVertical: 10,
     alignItems: 'center',
     marginTop: 8,
@@ -250,27 +259,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    alignItems: 'center',
-    paddingVertical: 14,
     marginTop: 22,
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: 16,
-  },
-  secondaryButton: {
-    borderWidth: 1,
-    borderColor: '#DADCE0',
-    borderRadius: 12,
-    alignItems: 'center',
-    paddingVertical: 12,
-    marginTop: 12,
-  },
-  secondaryButtonText: {
-    color: colors.text,
-    fontWeight: '700',
   },
 });

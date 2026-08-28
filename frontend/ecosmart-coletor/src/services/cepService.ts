@@ -106,15 +106,15 @@ export async function fetchAddressByCep(cepInput: string): Promise<CepLookupResu
     };
   }
 
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
   try {
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const timeoutId = controller ? setTimeout(() => controller.abort(), 4000) : null;
+    timeoutId = controller ? setTimeout(() => controller.abort(), 4000) : null;
 
     const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`, {
       signal: controller ? controller.signal : undefined,
     });
-
-    if (timeoutId) clearTimeout(timeoutId);
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
@@ -168,6 +168,8 @@ export async function fetchAddressByCep(cepInput: string): Promise<CepLookupResu
       longitude: CACERES_DEFAULTS.LONGITUDE,
       message: 'Modo offline: Preenchido com dados padrão de Cáceres - MT.',
     };
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
   }
 }
 

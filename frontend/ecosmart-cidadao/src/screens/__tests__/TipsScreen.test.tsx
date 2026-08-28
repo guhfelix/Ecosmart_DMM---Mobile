@@ -25,9 +25,9 @@ describe('TipsScreen Cidadão', () => {
 
   it('deve acionar onBack ao clicar em Voltar', () => {
     const onBack = jest.fn();
-    const { getByText } = render(<TipsScreen onBack={onBack} />);
+    const { getByLabelText } = render(<TipsScreen onBack={onBack} />);
 
-    fireEvent.press(getByText('Voltar'));
+    fireEvent.press(getByLabelText('Voltar'));
     expect(onBack).toHaveBeenCalled();
   });
 });

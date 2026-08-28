@@ -81,7 +81,7 @@ describe('ProfileScreen Cidadão', () => {
     const onUpdateUser = jest.fn();
     const onBack = jest.fn();
 
-    const { getByDisplayValue, getByTestId } = render(
+    const { getByDisplayValue, getByTestId, getByText } = render(
       <ProfileScreen
         user={mockUser}
         discards={mockDiscards}
@@ -101,7 +101,7 @@ describe('ProfileScreen Cidadão', () => {
         cep: '78200-050',
       })
     );
-    expect(Alert.alert).toHaveBeenCalledWith('Perfil Atualizado', expect.any(String));
+    expect(getByText('✓ Perfil atualizado com sucesso.')).toBeTruthy();
   });
 
   it('deve autocompletar endereço ao digitar CEP de 8 dígitos', async () => {

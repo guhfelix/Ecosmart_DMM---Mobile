@@ -89,7 +89,7 @@ describe('EducationalTipsScreen Admin', () => {
     const onDelete = jest.fn();
     const onBack = jest.fn();
 
-    const { getByText } = render(
+    const { getByLabelText } = render(
       <EducationalTipsScreen
         items={mockTips}
         onSave={onSave}
@@ -98,7 +98,7 @@ describe('EducationalTipsScreen Admin', () => {
       />
     );
 
-    fireEvent.press(getByText('Voltar'));
+    fireEvent.press(getByLabelText('Voltar'));
     expect(onBack).toHaveBeenCalled();
   });
 });

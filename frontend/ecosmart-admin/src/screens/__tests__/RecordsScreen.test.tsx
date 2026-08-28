@@ -93,7 +93,7 @@ describe('RecordsScreen Admin', () => {
     const onSelectFilter = jest.fn();
     const onBack = jest.fn();
 
-    const { getByText } = render(
+    const { getByLabelText } = render(
       <RecordsScreen
         items={mockItems}
         selectedFilter="todos"
@@ -102,7 +102,7 @@ describe('RecordsScreen Admin', () => {
       />
     );
 
-    fireEvent.press(getByText('Voltar'));
+    fireEvent.press(getByLabelText('Voltar'));
     expect(onBack).toHaveBeenCalled();
   });
 });

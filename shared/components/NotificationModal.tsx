@@ -38,14 +38,21 @@ export function NotificationModal({
             <Text style={styles.title}>Notificações</Text>
             <Text style={styles.subtitle}>Alertas e atualizações do ecossistema</Text>
           </View>
-          <Pressable style={styles.closeHeaderButton} onPress={onClose}>
+          <Pressable
+            style={({ pressed }) => [styles.closeHeaderButton, pressed && styles.pressed]}
+            onPress={onClose}
+            hitSlop={8}
+          >
             <Text style={styles.closeHeaderButtonText}>✕</Text>
           </Pressable>
         </View>
 
         {notifications.length > 0 ? (
           <View style={styles.actionsBar}>
-            <Pressable style={styles.markReadButton} onPress={onMarkAllAsRead}>
+            <Pressable
+              style={({ pressed }) => [styles.markReadButton, pressed && styles.pressed]}
+              onPress={onMarkAllAsRead}
+            >
               <Text style={styles.markReadButtonText}>Marcar todas como lidas</Text>
             </Pressable>
           </View>
@@ -76,7 +83,7 @@ export function NotificationModal({
           )}
         />
 
-        <Pressable style={styles.closeButton} onPress={onClose}>
+        <Pressable style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]} onPress={onClose}>
           <Text style={styles.closeButtonText}>Fechar</Text>
         </Pressable>
       </SafeAreaView>
@@ -88,6 +95,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  pressed: {
+    opacity: 0.72,
   },
   header: {
     flexDirection: 'row',
@@ -106,7 +116,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   subtitle: {
-    color: '#E8F5E9',
+    color: colors.primarySoft,
     fontSize: 13,
     marginTop: 4,
   },
@@ -132,7 +142,7 @@ const styles = StyleSheet.create({
   markReadButton: {
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: colors.primarySoft,
     borderRadius: 8,
   },
   markReadButtonText: {
@@ -148,14 +158,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: colors.border,
     padding: 14,
     marginBottom: 10,
   },
   cardUnread: {
     borderLeftWidth: 5,
     borderLeftColor: colors.primary,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: colors.surface,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -211,7 +221,7 @@ const styles = StyleSheet.create({
   closeButton: {
     backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#DADCE0',
+    borderColor: colors.border,
     borderRadius: 12,
     marginHorizontal: 20,
     marginBottom: 20,

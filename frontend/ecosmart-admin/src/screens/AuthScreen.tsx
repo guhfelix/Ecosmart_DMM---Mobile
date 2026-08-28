@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import {
+  Pressable,
   Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -48,6 +48,13 @@ export function AuthScreen({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [accessCode, setAccessCode] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState<{
+    name?: string;
+    email?: string;
+    password?: string;
+    accessCode?: string;
+  }>({});
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
 
   // Estados do Modal de Recuperação de Senha
@@ -84,6 +91,17 @@ export function AuthScreen({
   /** Submissão do formulário de autenticação */
   const handleSubmit = () => {
     const normalizedEmail = email.trim().toLowerCase();
+    const nextErrors: {
+      name?: string;
+      email?: string;
+      password?: string;
+      accessCode?: string;
+    } = {};
+    if (isRegister && !name.trim()) nextErrors.name = 'Informe seu nome.';
+    if (!normalizedEmail) nextErrors.email = 'Informe seu e-mail.';
+    if (!password.trim()) nextErrors.password = 'Informe sua senha.';
+    if (isRegister && !accessCode.trim()) nextErrors.accessCode = 'Informe o código administrativo.';
+    setErrors(nextErrors);
 
     if (!normalizedEmail || !password.trim()) {
       Alert.alert('Dados incompletos', 'Informe e-mail e senha.');
@@ -180,10 +198,16 @@ export function AuthScreen({
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.select({ ios: 'padding', android: 'height' })}
         style={styles.keyboardView}
       >
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[styles.content, !isRegister && styles.contentCentered]}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.header}>
             <Text style={styles.logo}>♻️</Text>
             <Text style={styles.title}>EcoSmart Admin</Text>
@@ -233,47 +257,76 @@ export function AuthScreen({
               <>
                 <Text style={styles.label}>Nome</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, errors.name && styles.inputError]}
                   value={name}
-                  onChangeText={setName}
+                  onChangeText={(text) => {
+                    setName(text);
+                    if (errors.name) setErrors((prev) => ({ ...prev, name: undefined }));
+                  }}
                   placeholder="Seu nome"
                   placeholderTextColor={colors.muted}
+                  returnKeyType="next"
                 />
+                {errors.name ? <Text style={styles.errorText}>{errors.name}</Text> : null}
 
                 <Text style={styles.label}>Código de Acesso Administrativo</Text>
                 <TextInput
                   testID="access-code-input"
-                  style={styles.input}
+                  style={[styles.input, errors.accessCode && styles.inputError]}
                   value={accessCode}
-                  onChangeText={setAccessCode}
+                  onChangeText={(text) => {
+                    setAccessCode(text);
+                    if (errors.accessCode) setErrors((prev) => ({ ...prev, accessCode: undefined }));
+                  }}
                   placeholder="Informe a chave de segurança (ex: ADMIN2026)"
                   placeholderTextColor={colors.muted}
                   autoCapitalize="characters"
+                  returnKeyType="next"
                 />
+                {errors.accessCode ? <Text style={styles.errorText}>{errors.accessCode}</Text> : null}
               </>
             ) : null}
 
             <Text style={styles.label}>E-mail</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, errors.email && styles.inputError]}
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(text) => {
+                setEmail(text);
+                if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
+              }}
               placeholder="email@exemplo.com"
               placeholderTextColor={colors.muted}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              returnKeyType="next"
             />
+            {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
 
             <Text style={styles.label}>Senha</Text>
-            <TextInput
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Sua senha"
-              placeholderTextColor={colors.muted}
-              secureTextEntry
-            />
+            <View style={[styles.passwordRow, errors.password && styles.inputError]}>
+              <TextInput
+                style={styles.passwordInput}
+                value={password}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
+                }}
+                placeholder="Sua senha"
+                placeholderTextColor={colors.muted}
+                secureTextEntry={!showPassword}
+                returnKeyType="done"
+              />
+              <Pressable
+                hitSlop={8}
+                onPress={() => setShowPassword((current) => !current)}
+                style={({ pressed }) => [styles.passwordToggle, pressed && styles.pressed]}
+              >
+                <Text style={styles.passwordToggleText}>{showPassword ? 'Ocultar' : 'Mostrar'}</Text>
+              </Pressable>
+            </View>
+            {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
 
             <Pressable
               testID="submit-button"
@@ -373,10 +426,19 @@ const styles = StyleSheet.create({
   keyboardView: {
     flex: 1,
   },
+  scrollView: {
+    flex: 1,
+  },
   content: {
     flexGrow: 1,
-    justifyContent: 'center',
     padding: 20,
+    paddingBottom: 36,
+  },
+  contentCentered: {
+    justifyContent: 'center',
+  },
+  pressed: {
+    opacity: 0.78,
   },
   header: {
     backgroundColor: colors.primary,
@@ -394,7 +456,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   subtitle: {
-    color: '#F3E5F5',
+    color: colors.primarySoft,
     fontSize: 15,
     lineHeight: 21,
     marginTop: 8,
@@ -460,7 +522,7 @@ const styles = StyleSheet.create({
   },
   tabs: {
     flexDirection: 'row',
-    backgroundColor: '#F3E5F5',
+    backgroundColor: colors.primarySoft,
     borderRadius: 12,
     padding: 4,
     marginBottom: 14,
@@ -496,6 +558,39 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 15,
     padding: 12,
+  },
+  inputError: {
+    borderColor: colors.danger,
+    backgroundColor: colors.dangerSoft,
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 6,
+  },
+  passwordRow: {
+    alignItems: 'center',
+    backgroundColor: '#FAFAFA',
+    borderWidth: 1,
+    borderColor: '#DADCE0',
+    borderRadius: 12,
+    flexDirection: 'row',
+  },
+  passwordInput: {
+    color: colors.text,
+    flex: 1,
+    fontSize: 15,
+    padding: 12,
+  },
+  passwordToggle: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  passwordToggleText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '800',
   },
   primaryButton: {
     backgroundColor: colors.primary,

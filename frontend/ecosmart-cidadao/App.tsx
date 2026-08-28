@@ -8,11 +8,15 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { RegisterDiscardScreen } from './src/screens/RegisterDiscardScreen';
 import { HistoryScreen } from './src/screens/HistoryScreen';
+import { DiscardDetailsScreen } from './src/screens/DiscardDetailsScreen';
 import { TipsScreen } from './src/screens/TipsScreen';
 import { CollectionPointsScreen } from './src/screens/CollectionPointsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { NotificationModal } from './src/components/NotificationModal';
+import { ScreenTransition } from './src/components/ScreenTransition';
+import { LoadingScreen } from './src/components/LoadingScreen';
+import { FeedbackMessage } from './src/components/FeedbackMessage';
 
 // Modelos, Dados e Serviços
 import { collectionPoints, tips, wasteTypes } from './src/data/mockData';
@@ -32,7 +36,7 @@ import {
 } from './src/services/notificationService';
 
 /** Telas navegáveis disponíveis no fluxo do Cidadão */
-type Screen = 'home' | 'register' | 'history' | 'tips' | 'points' | 'profile';
+type Screen = 'home' | 'register' | 'history' | 'details' | 'tips' | 'points' | 'profile';
 
 /**
  * Componente Raiz do aplicativo EcoSmart Cidadão.
@@ -42,10 +46,15 @@ export default function App() {
   // --- Estados de Navegação e Dados ---
   const [screen, setScreen] = useState<Screen>('home');
   const [items, setItems] = useState<DiscardItem[]>([]);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<Usuario | null>(null);
   const [registeredUsers, setRegisteredUsers] = useState<RegisteredUser[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    message: string;
+    variant: 'success' | 'info' | 'warning' | 'danger';
+  } | null>(null);
   const [isReady, setIsReady] = useState(false);
 
   // Hook de detecção de conectividade
@@ -231,6 +240,12 @@ export default function App() {
   /** Adiciona um novo descarte à lista em memória e transmite em tempo real para todos os apps e Firebase */
   const addDiscard = async (item: DiscardItem) => {
     setItems((prev) => [item, ...prev]);
+    setFeedback({
+      message: item.offline
+        ? '✓ Descarte salvo offline. Ele será sincronizado quando a conexão voltar.'
+        : '✓ Descarte registrado com sucesso.',
+      variant: item.offline ? 'warning' : 'success',
+    });
 
     // 1. Persiste diretamente no Firebase Cloud Firestore
     await firebaseService.saveCitizenDiscard(item, currentUser || undefined).catch((err) => {
@@ -261,6 +276,8 @@ export default function App() {
     const target = items.find((i) => i.id === id);
     setItems((prev) => prev.filter((i) => i.id !== id));
     await crossAppSync.deleteDiscard(id);
+    setSelectedItemId(null);
+    setScreen('history');
 
     const notif = createNotification(
       'Descarte Excluído',
@@ -268,6 +285,7 @@ export default function App() {
       'discard'
     );
     setNotifications((prev) => [notif, ...prev]);
+    setFeedback({ message: '✓ Descarte excluído com sucesso.', variant: 'success' });
   };
 
   /** Atualiza o perfil do cidadão */
@@ -386,6 +404,15 @@ export default function App() {
 
   const unreadCount = useMemo(() => getUnreadNotificationCount(notifications), [notifications]);
 
+  const selectedItem = useMemo(() => {
+    return items.find((item) => item.id === selectedItemId) ?? null;
+  }, [items, selectedItemId]);
+
+  const openDiscardDetails = (item: DiscardItem) => {
+    setSelectedItemId(item.id);
+    setScreen('details');
+  };
+
   // --- Renderização Dinâmica de Telas ---
   const renderScreen = useMemo(() => {
     if (!currentUser) {
@@ -418,7 +445,23 @@ export default function App() {
         return (
           <HistoryScreen
             items={items}
+            onOpenDetails={openDiscardDetails}
+            onRegister={() => setScreen('register')}
+            onBack={() => setScreen('home')}
+          />
+        );
+      case 'details':
+        return selectedItem ? (
+          <DiscardDetailsScreen
+            item={selectedItem}
             onDelete={handleDeleteDiscard}
+            onBack={() => setScreen('history')}
+          />
+        ) : (
+          <HistoryScreen
+            items={items}
+            onOpenDetails={openDiscardDetails}
+            onRegister={() => setScreen('register')}
             onBack={() => setScreen('home')}
           />
         );
@@ -448,23 +491,44 @@ export default function App() {
         return (
           <HomeScreen
             onNavigate={setScreen}
+            onOpenDiscardDetails={openDiscardDetails}
             onLogout={handleLogout}
             onOpenNotifications={() => setShowNotificationsModal(true)}
             unreadNotificationsCount={unreadCount}
+            currentUser={currentUser}
+            items={items}
           />
         );
     }
-  }, [screen, items, currentUser, registeredUsers, unreadCount, isOffline]);
+  }, [screen, items, selectedItem, currentUser, registeredUsers, unreadCount, isOffline]);
+
+  if (!isReady) {
+    return (
+      <SafeAreaProvider>
+        <LoadingScreen />
+        <StatusBar style="light" />
+      </SafeAreaProvider>
+    );
+  }
 
   return (
     <SafeAreaProvider>
       <OfflineBanner isOffline={isOffline} />
-      {renderScreen}
+      {currentUser ? (
+        <ScreenTransition screenKey={screen}>{renderScreen}</ScreenTransition>
+      ) : (
+        renderScreen
+      )}
       <NotificationModal
         visible={showNotificationsModal}
         notifications={notifications}
         onClose={() => setShowNotificationsModal(false)}
         onMarkAllAsRead={() => setNotifications((prev) => markAllNotificationsAsRead(prev))}
+      />
+      <FeedbackMessage
+        message={feedback?.message}
+        variant={feedback?.variant}
+        onHide={() => setFeedback(null)}
       />
       <StatusBar style="light" />
     </SafeAreaProvider>

@@ -4,7 +4,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,9 +11,13 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FeedbackMessage } from '../components/FeedbackMessage';
+import { PrimaryButton } from '../components/PrimaryButton';
+import { ScreenHeader } from '../components/ScreenHeader';
 import { CollectorDiscard } from '../data/mockData';
 import { Usuario } from '../models';
 import { colors } from '../theme/colors';
+import { radius, spacing } from '../theme/layout';
 import { cepService, formatCep } from '../services/cepService';
 
 type Props = {
@@ -39,6 +42,8 @@ export function ProfileScreen({ user, discards, onUpdateUser, onBack }: Props) {
   );
   const [isSearchingCep, setIsSearchingCep] = useState(false);
   const [cepFeedback, setCepFeedback] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   // --- Estatísticas Operacionais do Coletor ---
   const collectedCount = discards.filter((d) => (d.status || '').toLowerCase() === 'coletado').length;
@@ -72,9 +77,11 @@ export function ProfileScreen({ user, discards, onUpdateUser, onBack }: Props) {
 
   const handleSave = () => {
     if (!nome.trim()) {
+      setNameError('Informe o nome ou razão social.');
       Alert.alert('Campo Obrigatório', 'Por favor, informe o nome ou razão social.');
       return;
     }
+    setNameError(null);
 
     const updated: Usuario = {
       ...user,
@@ -92,13 +99,14 @@ export function ProfileScreen({ user, discards, onUpdateUser, onBack }: Props) {
     };
 
     onUpdateUser(updated);
-    Alert.alert('Perfil Atualizado', 'As informações operacionais e de base foram salvas com sucesso!');
+    setFeedback('✓ Perfil atualizado com sucesso.');
   };
 
   return (
     <SafeAreaView style={styles.container}>
+      <ScreenHeader title="Perfil" subtitle="Dados operacionais e base de coleta." onBack={onBack} />
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.select({ ios: 'padding', android: 'height' })}
         style={styles.keyboardView}
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -118,11 +126,11 @@ export function ProfileScreen({ user, discards, onUpdateUser, onBack }: Props) {
           <Text style={styles.sectionTitle}>Resumo Operacional</Text>
           <View style={styles.metricsGrid}>
             <View style={styles.metricCard}>
-              <Text style={[styles.metricValue, { color: '#2E7D32' }]}>{collectedCount}</Text>
+              <Text style={[styles.metricValue, { color: colors.success }]}>{collectedCount}</Text>
               <Text style={styles.metricLabel}>Coletas realizadas</Text>
             </View>
             <View style={styles.metricCard}>
-              <Text style={[styles.metricValue, { color: '#1565C0' }]}>{availableCount}</Text>
+              <Text style={[styles.metricValue, { color: colors.primary }]}>{availableCount}</Text>
               <Text style={styles.metricLabel}>Disponíveis na região</Text>
             </View>
           </View>
@@ -132,12 +140,17 @@ export function ProfileScreen({ user, discards, onUpdateUser, onBack }: Props) {
           <View style={styles.form}>
             <Text style={styles.label}>Nome do Catador / Razão Social</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, nameError && styles.inputError]}
               value={nome}
-              onChangeText={setNome}
+              onChangeText={(text) => {
+                setNome(text);
+                if (nameError) setNameError(null);
+              }}
               placeholder="Nome ou empresa"
               placeholderTextColor={colors.muted}
+              returnKeyType="next"
             />
+            {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
 
             <Text style={styles.label}>Telefone / WhatsApp de Contato</Text>
             <TextInput
@@ -229,16 +242,16 @@ export function ProfileScreen({ user, discards, onUpdateUser, onBack }: Props) {
               numberOfLines={3}
             />
 
-            <Pressable testID="save-profile-button" style={styles.saveButton} onPress={handleSave}>
-              <Text style={styles.saveButtonText}>💾 Salvar Alterações</Text>
-            </Pressable>
+            <PrimaryButton
+              title="Salvar alterações"
+              onPress={handleSave}
+              testID="save-profile-button"
+              style={styles.saveButton}
+            />
           </View>
-
-          <Pressable style={styles.backButton} onPress={onBack}>
-            <Text style={styles.backButtonText}>Voltar</Text>
-          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
+      <FeedbackMessage message={feedback} onHide={() => setFeedback(null)} />
     </SafeAreaView>
   );
 }
@@ -252,14 +265,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 20,
+    padding: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: 36,
   },
   header: {
     alignItems: 'center',
     marginBottom: 20,
     backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
     borderWidth: 1,
     borderColor: '#E0E0E0',
   },
@@ -267,7 +282,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#1565C0',
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
@@ -290,15 +305,15 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   levelBadge: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#90CAF9',
+    borderColor: colors.primaryMuted,
   },
   levelBadgeText: {
-    color: '#1565C0',
+    color: colors.primaryDark,
     fontSize: 12,
     fontWeight: '800',
   },
@@ -317,7 +332,7 @@ const styles = StyleSheet.create({
   metricCard: {
     flex: 1,
     backgroundColor: colors.card,
-    borderRadius: 12,
+    borderRadius: radius.md,
     padding: 16,
     alignItems: 'center',
     borderWidth: 1,
@@ -335,8 +350,8 @@ const styles = StyleSheet.create({
   },
   form: {
     backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
     borderWidth: 1,
     borderColor: '#E0E0E0',
     marginBottom: 20,
@@ -358,11 +373,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F9FA',
     borderWidth: 1,
     borderColor: '#DADCE0',
-    borderRadius: 10,
+    borderRadius: radius.sm,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
     color: colors.text,
+  },
+  inputError: {
+    borderColor: colors.danger,
+    backgroundColor: colors.dangerSoft,
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: spacing.xs,
   },
   textArea: {
     minHeight: 70,
@@ -370,33 +395,11 @@ const styles = StyleSheet.create({
   },
   cepFeedbackText: {
     fontSize: 12,
-    color: '#2E7D32',
+    color: colors.success,
     marginTop: 4,
     fontWeight: '600',
   },
   saveButton: {
-    backgroundColor: '#2E7D32',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
     marginTop: 20,
-  },
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  backButton: {
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: '#DADCE0',
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  backButtonText: {
-    color: colors.text,
-    fontWeight: '700',
   },
 });

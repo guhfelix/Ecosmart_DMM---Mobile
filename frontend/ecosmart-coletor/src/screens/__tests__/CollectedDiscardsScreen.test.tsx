@@ -85,7 +85,7 @@ describe('CollectedDiscardsScreen Coletor', () => {
     const onOpenDetails = jest.fn();
     const onBack = jest.fn();
 
-    const { getByText } = render(
+    const { getByLabelText } = render(
       <CollectedDiscardsScreen
         items={mockItems}
         onOpenDetails={onOpenDetails}
@@ -93,7 +93,7 @@ describe('CollectedDiscardsScreen Coletor', () => {
       />
     );
 
-    fireEvent.press(getByText('Voltar'));
+    fireEvent.press(getByLabelText('Voltar'));
     expect(onBack).toHaveBeenCalled();
   });
 });

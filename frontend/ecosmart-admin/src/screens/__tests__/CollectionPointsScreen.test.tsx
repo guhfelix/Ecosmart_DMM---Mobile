@@ -94,7 +94,7 @@ describe('CollectionPointsScreen Admin', () => {
     const onDelete = jest.fn();
     const onBack = jest.fn();
 
-    const { getByText } = render(
+    const { getByLabelText } = render(
       <CollectionPointsScreen
         items={mockPoints}
         onSave={onSave}
@@ -103,7 +103,7 @@ describe('CollectionPointsScreen Admin', () => {
       />
     );
 
-    fireEvent.press(getByText('Voltar'));
+    fireEvent.press(getByLabelText('Voltar'));
     expect(onBack).toHaveBeenCalled();
   });
 });

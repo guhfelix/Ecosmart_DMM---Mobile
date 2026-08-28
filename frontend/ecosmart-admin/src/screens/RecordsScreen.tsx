@@ -1,8 +1,22 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Pressable,
+  Alert,
+  FlatList,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { EmptyState } from '../components/EmptyState';
+import { PrimaryButton } from '../components/PrimaryButton';
+import { ScreenHeader } from '../components/ScreenHeader';
 import { AdminDiscardRecord, AdminDiscardStatus } from '../data/mockData';
 import { colors } from '../theme/colors';
+import { radius, spacing } from '../theme/layout';
 import { generateCsvReport, generateSustainabilityMetrics } from '../services/reportService';
 
 type RecordFilter = 'todos' | AdminDiscardStatus;
@@ -56,10 +70,11 @@ export function RecordsScreen({ items, selectedFilter, onSelectFilter, onDelete,
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Registros gerais</Text>
-        <Text style={styles.subtitle}>Acompanhe descartes e indicadores ESG do ecossistema.</Text>
-      </View>
+      <ScreenHeader
+        title="Registros gerais"
+        subtitle="Acompanhe descartes e indicadores ESG."
+        onBack={onBack}
+      />
 
       <View style={styles.summary}>
         <View style={styles.summaryItem}>
@@ -77,7 +92,10 @@ export function RecordsScreen({ items, selectedFilter, onSelectFilter, onDelete,
       </View>
 
       {/* Botão de Relatório ESG & Exportação */}
-      <Pressable style={styles.reportButton} onPress={() => setShowReportModal(true)}>
+      <Pressable
+        style={({ pressed }) => [styles.reportButton, pressed && styles.pressed]}
+        onPress={() => setShowReportModal(true)}
+      >
         <Text style={styles.reportButtonText}>📊 Relatório ESG & Exportação (CSV)</Text>
       </Pressable>
 
@@ -106,7 +124,11 @@ export function RecordsScreen({ items, selectedFilter, onSelectFilter, onDelete,
             {filters.map((filter) => (
               <Pressable
                 key={filter.value}
-                style={[styles.filter, selectedFilter === filter.value && styles.filterSelected]}
+                style={({ pressed }) => [
+                  styles.filter,
+                  selectedFilter === filter.value && styles.filterSelected,
+                  pressed && styles.pressed,
+                ]}
                 onPress={() => onSelectFilter(filter.value)}
               >
                 <Text style={[styles.filterText, selectedFilter === filter.value && styles.filterTextSelected]}>
@@ -116,11 +138,7 @@ export function RecordsScreen({ items, selectedFilter, onSelectFilter, onDelete,
             ))}
           </View>
         }
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>Nenhum registro encontrado para este filtro.</Text>
-          </View>
-        }
+        ListEmptyComponent={<EmptyState title="Nenhum registro encontrado." message="Ajuste os filtros ou a busca para visualizar outros registros." />}
         renderItem={({ item }) => (
           <View style={styles.card}>
             <View style={styles.cardTop}>
@@ -136,7 +154,7 @@ export function RecordsScreen({ items, selectedFilter, onSelectFilter, onDelete,
 
             {onDelete ? (
               <Pressable
-                style={styles.deleteButton}
+                style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}
                 onPress={() => {
                   Alert.alert(
                     '🗑️ Excluir Registro',
@@ -157,11 +175,6 @@ export function RecordsScreen({ items, selectedFilter, onSelectFilter, onDelete,
             ) : null}
           </View>
         )}
-        ListFooterComponent={
-          <Pressable style={styles.backButton} onPress={onBack}>
-            <Text style={styles.backButtonText}>Voltar</Text>
-          </Pressable>
-        }
       />
 
       {/* Modal de Relatório ESG e Exportação CSV */}
@@ -198,9 +211,7 @@ export function RecordsScreen({ items, selectedFilter, onSelectFilter, onDelete,
                 editable={false}
               />
 
-              <Pressable style={styles.primaryButton} onPress={handleCopyCsv}>
-                <Text style={styles.primaryButtonText}>📋 Exportar Relatório CSV</Text>
-              </Pressable>
+              <PrimaryButton title="Exportar relatório CSV" onPress={handleCopyCsv} />
             </ScrollView>
 
             <Pressable style={styles.secondaryButton} onPress={() => setShowReportModal(false)}>
@@ -224,6 +235,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  pressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.99 }],
+  },
   header: {
     backgroundColor: colors.primary,
     padding: 20,
@@ -238,7 +253,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   subtitle: {
-    color: '#F3E5F5',
+    color: colors.primarySoft,
     fontSize: 14,
     lineHeight: 20,
     marginTop: 6,
@@ -246,13 +261,13 @@ const styles = StyleSheet.create({
   summary: {
     flexDirection: 'row',
     gap: 8,
-    marginHorizontal: 20,
+    marginHorizontal: spacing.lg,
     marginBottom: 10,
   },
   summaryItem: {
     flex: 1,
     backgroundColor: colors.card,
-    borderRadius: 12,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: '#E0E0E0',
     padding: 12,
@@ -269,24 +284,24 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   reportButton: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: '#2E7D32',
-    borderRadius: 12,
-    marginHorizontal: 20,
+    borderColor: colors.primaryMuted,
+    borderRadius: radius.md,
+    marginHorizontal: spacing.lg,
     marginBottom: 10,
     paddingVertical: 10,
     alignItems: 'center',
   },
   reportButtonText: {
-    color: '#2E7D32',
+    color: colors.primaryDark,
     fontWeight: '800',
     fontSize: 14,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 20,
+    marginHorizontal: spacing.lg,
     marginBottom: 10,
     position: 'relative',
   },
@@ -294,8 +309,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#DADCE0',
-    borderRadius: 12,
+    borderColor: colors.border,
+    borderRadius: radius.md,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
@@ -312,8 +327,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   list: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: 28,
   },
   filters: {
     flexDirection: 'row',
@@ -322,8 +337,8 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   filter: {
-    backgroundColor: '#F3E5F5',
-    borderRadius: 999,
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.pill,
     paddingHorizontal: 12,
     paddingVertical: 8,
     marginRight: 8,
@@ -343,10 +358,10 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
+    borderColor: colors.cardBorder,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
   },
   cardTop: {
     flexDirection: 'row',
@@ -360,23 +375,23 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   status: {
-    borderRadius: 999,
+    borderRadius: radius.pill,
     fontSize: 12,
     fontWeight: '800',
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   status_pendente: {
-    backgroundColor: '#FFF3E0',
-    color: '#E65100',
+    backgroundColor: colors.warningSoft,
+    color: colors.warning,
   },
   status_visualizado: {
-    backgroundColor: '#E3F2FD',
-    color: '#1565C0',
+    backgroundColor: colors.infoSoft,
+    color: colors.info,
   },
   status_coletado: {
-    backgroundColor: '#E8F5E9',
-    color: '#2E7D32',
+    backgroundColor: colors.successSoft,
+    color: colors.success,
   },
   cardPhoto: {
     width: '100%',

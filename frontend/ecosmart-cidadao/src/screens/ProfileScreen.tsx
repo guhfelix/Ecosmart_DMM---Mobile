@@ -12,8 +12,12 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FeedbackMessage } from '../components/FeedbackMessage';
+import { PrimaryButton } from '../components/PrimaryButton';
+import { ScreenHeader } from '../components/ScreenHeader';
 import { DiscardItem, Usuario } from '../models';
 import { colors } from '../theme/colors';
+import { radius, spacing } from '../theme/layout';
 import { fetchAddressByCep, formatCep } from '../services/cepService';
 
 type Props = {
@@ -34,6 +38,8 @@ export function ProfileScreen({ user, discards, onUpdateUser, onBack }: Props) {
   const [bio, setBio] = useState(user.bio || 'Compromissado com a preservação do Pantanal e a reciclagem em Cáceres - MT.');
   const [isSearchingCep, setIsSearchingCep] = useState(false);
   const [cepFeedback, setCepFeedback] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   // --- Estatísticas Pessoais de Descarte ---
   const totalDiscards = discards.length;
@@ -76,9 +82,11 @@ export function ProfileScreen({ user, discards, onUpdateUser, onBack }: Props) {
 
   const handleSave = () => {
     if (!nome.trim()) {
+      setNameError('Informe seu nome.');
       Alert.alert('Campo Obrigatório', 'Por favor, informe seu nome.');
       return;
     }
+    setNameError(null);
 
     const updated: Usuario = {
       ...user,
@@ -94,16 +102,14 @@ export function ProfileScreen({ user, discards, onUpdateUser, onBack }: Props) {
     };
 
     onUpdateUser(updated);
-    Alert.alert(
-      'Perfil Atualizado',
-      'Suas informações e o endereço padrão de descarte foram salvos com sucesso!'
-    );
+    setFeedback('✓ Perfil atualizado com sucesso.');
   };
 
   return (
     <SafeAreaView style={styles.container}>
+      <ScreenHeader title="Perfil" subtitle="Dados pessoais e endereço padrão." onBack={onBack} />
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.select({ ios: 'padding', android: 'height' })}
         style={styles.keyboardView}
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -127,7 +133,7 @@ export function ProfileScreen({ user, discards, onUpdateUser, onBack }: Props) {
               <Text style={styles.metricLabel}>Total descartado</Text>
             </View>
             <View style={styles.metricCard}>
-              <Text style={[styles.metricValue, { color: '#2E7D32' }]}>{collectedDiscards}</Text>
+              <Text style={[styles.metricValue, { color: colors.success }]}>{collectedDiscards}</Text>
               <Text style={styles.metricLabel}>Coletados</Text>
             </View>
             <View style={styles.metricCard}>
@@ -147,12 +153,17 @@ export function ProfileScreen({ user, discards, onUpdateUser, onBack }: Props) {
           <View style={styles.form}>
             <Text style={styles.label}>Nome Completo</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, nameError && styles.inputError]}
               value={nome}
-              onChangeText={setNome}
+              onChangeText={(text) => {
+                setNome(text);
+                if (nameError) setNameError(null);
+              }}
               placeholder="Seu nome"
               placeholderTextColor={colors.muted}
+              returnKeyType="next"
             />
+            {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
 
             <Text style={styles.label}>Telefone / WhatsApp</Text>
             <TextInput
@@ -242,16 +253,16 @@ export function ProfileScreen({ user, discards, onUpdateUser, onBack }: Props) {
               numberOfLines={3}
             />
 
-            <Pressable style={styles.primaryButton} onPress={handleSave} testID="save-profile-button">
-              <Text style={styles.primaryButtonText}>Salvar Alterações</Text>
-            </Pressable>
+            <PrimaryButton
+              title="Salvar alterações"
+              onPress={handleSave}
+              testID="save-profile-button"
+              style={styles.primaryButton}
+            />
           </View>
-
-          <Pressable style={styles.backButton} onPress={onBack}>
-            <Text style={styles.backButtonText}>Voltar</Text>
-          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
+      <FeedbackMessage message={feedback} onHide={() => setFeedback(null)} />
     </SafeAreaView>
   );
 }
@@ -265,13 +276,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 20,
+    padding: spacing.lg,
+    paddingTop: spacing.sm,
     paddingBottom: 40,
   },
   header: {
     backgroundColor: colors.primary,
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: radius.lg,
+    padding: spacing.xl,
     alignItems: 'center',
     marginBottom: 20,
     shadowColor: '#000',
@@ -311,7 +323,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 20,
+    borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.4)',
   },
@@ -327,16 +339,16 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   infoBox: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: colors.primarySoft,
     borderLeftWidth: 4,
     borderLeftColor: colors.primary,
     padding: 12,
-    borderRadius: 8,
+    borderRadius: radius.sm,
     marginBottom: 16,
   },
   infoBoxText: {
     fontSize: 13,
-    color: '#1B5E20',
+    color: colors.primaryDark,
     lineHeight: 18,
   },
   metricsGrid: {
@@ -348,7 +360,7 @@ const styles = StyleSheet.create({
   metricCard: {
     flex: 1,
     backgroundColor: colors.card,
-    borderRadius: 12,
+    borderRadius: radius.md,
     padding: 14,
     alignItems: 'center',
     borderWidth: 1,
@@ -368,8 +380,8 @@ const styles = StyleSheet.create({
   },
   form: {
     backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: radius.lg,
+    padding: spacing.md,
     borderWidth: 1,
     borderColor: '#ECEFF1',
     marginBottom: 16,
@@ -385,11 +397,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAFAFA',
     borderWidth: 1,
     borderColor: '#CFD8DC',
-    borderRadius: 8,
+    borderRadius: radius.sm,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
     color: colors.text,
+  },
+  inputError: {
+    borderColor: colors.danger,
+    backgroundColor: colors.dangerSoft,
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: spacing.xs,
   },
   cepRow: {
     flexDirection: 'row',
@@ -414,13 +436,13 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   cepFeedbackBadge: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: colors.primarySoft,
     padding: 8,
     borderRadius: 6,
     marginTop: 6,
   },
   cepFeedbackText: {
-    color: '#2E7D32',
+    color: colors.primaryDark,
     fontSize: 12,
   },
   textArea: {
@@ -428,31 +450,6 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
     marginTop: 20,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  backButton: {
-    backgroundColor: '#ECEFF1',
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  backButtonText: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: '600',
   },
 });

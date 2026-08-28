@@ -1,12 +1,16 @@
 /**
- * Paleta de cores oficial e tokens de design do ecossistema EcoSmart Mobile.
- * Utilizada de forma padronizada em todos os componentes visuais dos 3 aplicativos.
+ * Tema do perfil Administrador.
+ * Azul reforça controle, gestão e organização.
  */
 export const colors = {
-  primary: '#2E7D32',
-  primaryDark: '#1B5E20',
-  secondary: '#66BB6A',
-  background: '#F5F5F5',
+  profile: 'admin',
+  profileName: 'Admin',
+  primary: '#1565C0',
+  primaryDark: '#0D47A1',
+  secondary: '#64B5F6',
+  primarySoft: '#E3F2FD',
+  primaryMuted: '#BBDEFB',
+  background: '#F3F7FC',
   card: '#FFFFFF',
   surface: '#FFFFFF',
   white: '#FFFFFF',
@@ -16,8 +20,16 @@ export const colors = {
   border: '#E0E0E0',
   cardBorder: '#ECEFF1',
   danger: '#D32F2F',
-  warning: '#FFA000',
+  dangerSoft: '#FFEBEE',
+  dangerMuted: '#FFCDD2',
+  warning: '#E65100',
+  warningSoft: '#FFF3E0',
+  warningMuted: '#FFE0B2',
   success: '#388E3C',
+  successSoft: '#E8F5E9',
+  successMuted: '#C8E6C9',
   info: '#0288D1',
+  infoSoft: '#E3F2FD',
+  infoMuted: '#BBDEFB',
 };
 

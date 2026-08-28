@@ -40,7 +40,7 @@ describe('ProfileScreen Coletor', () => {
     const onUpdateUser = jest.fn();
     const onBack = jest.fn();
 
-    const { getByDisplayValue, getByTestId } = render(
+    const { getByDisplayValue, getByTestId, getByText } = render(
       <ProfileScreen
         user={mockUser}
         discards={initialDiscards}
@@ -57,6 +57,6 @@ describe('ProfileScreen Coletor', () => {
         nome: 'Cooperativa Recicla Lucas',
       })
     );
-    expect(Alert.alert).toHaveBeenCalledWith('Perfil Atualizado', expect.any(String));
+    expect(getByText('✓ Perfil atualizado com sucesso.')).toBeTruthy();
   });
 });

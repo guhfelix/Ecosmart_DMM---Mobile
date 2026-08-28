@@ -1,8 +1,18 @@
 import React, { useMemo, useState } from 'react';
-import { FlatList, StyleSheet, Text, TextInput, View, Pressable } from 'react-native';
+import {
+  Pressable,
+  FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { EmptyState } from '../components/EmptyState';
+import { ScreenHeader } from '../components/ScreenHeader';
 import { tips } from '../data/mockData';
 import { colors } from '../theme/colors';
+import { radius, spacing } from '../theme/layout';
 
 type Props = {
   onBack: () => void;
@@ -24,10 +34,11 @@ export function TipsScreen({ onBack }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Dicas educativas</Text>
-        <Text style={styles.subtitle}>Boas práticas para separar e descartar seus resíduos.</Text>
-      </View>
+      <ScreenHeader
+        title="Dicas educativas"
+        subtitle="Boas práticas para separar e descartar seus resíduos."
+        onBack={onBack}
+      />
 
       {/* Busca em tempo real */}
       <View style={styles.searchContainer}>
@@ -49,11 +60,7 @@ export function TipsScreen({ onBack }: Props) {
         data={filteredTips}
         contentContainerStyle={styles.list}
         keyExtractor={(item) => item.id}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>Nenhuma dica encontrada para esta busca.</Text>
-          </View>
-        }
+        ListEmptyComponent={<EmptyState title="Nenhuma dica encontrada." message="Tente buscar por outro assunto ou material." />}
         renderItem={({ item }) => (
           <View style={styles.card}>
             <View style={styles.cardTop}>
@@ -68,10 +75,6 @@ export function TipsScreen({ onBack }: Props) {
           </View>
         )}
       />
-
-      <Pressable style={styles.backButton} onPress={onBack}>
-        <Text style={styles.backButtonText}>Voltar</Text>
-      </Pressable>
     </SafeAreaView>
   );
 }
@@ -96,23 +99,24 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: '#E8F5E9',
+    color: colors.primarySoft,
     marginTop: 6,
     lineHeight: 20,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 20,
-    marginBottom: 12,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
     position: 'relative',
   },
   searchInput: {
     flex: 1,
     backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#DADCE0',
-    borderRadius: 12,
+    borderColor: colors.border,
+    borderRadius: radius.md,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
@@ -129,16 +133,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   list: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: 28,
   },
   card: {
     backgroundColor: colors.card,
-    padding: 16,
-    borderRadius: 14,
+    padding: spacing.md,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
-    marginBottom: 12,
+    borderColor: colors.cardBorder,
+    marginBottom: spacing.sm,
   },
   cardTop: {
     flexDirection: 'row',
@@ -153,7 +157,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   categoryBadge: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,

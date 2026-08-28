@@ -1,8 +1,19 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, FlatList, StyleSheet, Text, TextInput, View, Pressable } from 'react-native';
+import {
+  Pressable,
+  Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { EmptyState } from '../components/EmptyState';
+import { ScreenHeader } from '../components/ScreenHeader';
 import { collectionPoints } from '../data/mockData';
 import { colors } from '../theme/colors';
+import { radius, spacing } from '../theme/layout';
 import { formatDistance } from '../utils/geoUtils';
 import { CollectionPointItem } from '../models';
 
@@ -36,10 +47,11 @@ export function CollectionPointsScreen({ onBack }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Pontos de coleta</Text>
-        <Text style={styles.subtitle}>Locais próximos com geolocalização para descarte responsável.</Text>
-      </View>
+      <ScreenHeader
+        title="Pontos de coleta"
+        subtitle="Locais próximos para descarte responsável."
+        onBack={onBack}
+      />
 
       {/* Barra de Busca em Tempo Real */}
       <View style={styles.searchContainer}>
@@ -61,11 +73,7 @@ export function CollectionPointsScreen({ onBack }: Props) {
         data={filteredPoints}
         contentContainerStyle={styles.list}
         keyExtractor={(item) => item.id}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>Nenhum ponto de coleta encontrado para a busca.</Text>
-          </View>
-        }
+        ListEmptyComponent={<EmptyState title="Nenhum ponto encontrado." message="Tente buscar por outro bairro, endereço ou resíduo." />}
         renderItem={({ item }) => (
           <View style={styles.card}>
             <View style={styles.cardTop}>
@@ -87,16 +95,15 @@ export function CollectionPointsScreen({ onBack }: Props) {
               <Text style={styles.cardSchedule}>Horário: {item.schedule}</Text>
             ) : null}
 
-            <Pressable style={styles.routeButton} onPress={() => handleOpenRoute(item)}>
+            <Pressable
+              style={({ pressed }) => [styles.routeButton, pressed && styles.pressed]}
+              onPress={() => handleOpenRoute(item)}
+            >
               <Text style={styles.routeButtonText}>🗺️ Ver no Mapa / Rota GPS</Text>
             </Pressable>
           </View>
         )}
       />
-
-      <Pressable style={styles.backButton} onPress={onBack}>
-        <Text style={styles.backButtonText}>Voltar</Text>
-      </Pressable>
     </SafeAreaView>
   );
 }
@@ -105,6 +112,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  pressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.99 }],
   },
   header: {
     backgroundColor: colors.primary,
@@ -121,23 +132,24 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: '#E8F5E9',
+    color: colors.primarySoft,
     marginTop: 6,
     lineHeight: 20,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 20,
-    marginBottom: 12,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
     position: 'relative',
   },
   searchInput: {
     flex: 1,
     backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#DADCE0',
-    borderRadius: 12,
+    borderColor: colors.border,
+    borderRadius: radius.md,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
@@ -154,16 +166,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   list: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: 28,
   },
   card: {
     backgroundColor: colors.card,
-    padding: 16,
-    borderRadius: 14,
+    padding: spacing.md,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
-    marginBottom: 12,
+    borderColor: colors.cardBorder,
+    marginBottom: spacing.sm,
   },
   cardTop: {
     flexDirection: 'row',
@@ -178,7 +190,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   distanceBadge: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -213,8 +225,8 @@ const styles = StyleSheet.create({
   routeButton: {
     backgroundColor: '#FAFAFA',
     borderWidth: 1,
-    borderColor: '#DADCE0',
-    borderRadius: 10,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
     paddingVertical: 8,
     alignItems: 'center',
     marginTop: 6,

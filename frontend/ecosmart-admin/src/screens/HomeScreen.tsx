@@ -1,15 +1,27 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppCard } from '../components/AppCard';
+import { PrimaryButton } from '../components/PrimaryButton';
 import { homeItems } from '../data/mockData';
 import { colors } from '../theme/colors';
+import { radius, shadow, spacing } from '../theme/layout';
 
 type Props = {
   onNavigate: (screen: 'wasteTypes' | 'collectionPoints' | 'tips' | 'records' | 'profile') => void;
   onLogout?: () => void;
   onOpenNotifications?: () => void;
   unreadNotificationsCount?: number;
+  wasteTypesCount?: number;
+  collectionPointsCount?: number;
+  recordsCount?: number;
+  pendingRecordsCount?: number;
 };
 
 export function HomeScreen({
@@ -17,6 +29,10 @@ export function HomeScreen({
   onLogout,
   onOpenNotifications,
   unreadNotificationsCount = 0,
+  wasteTypesCount = 0,
+  collectionPointsCount = 0,
+  recordsCount = 0,
+  pendingRecordsCount = 0,
 }: Props) {
   const actions = [
     { key: 'wasteTypes', title: homeItems[0].titulo, description: homeItems[0].descricao },
@@ -38,18 +54,20 @@ export function HomeScreen({
             <Text style={styles.logo}>♻️</Text>
             <View style={styles.headerActions}>
               <Pressable
-                style={styles.iconButton}
+                style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
                 onPress={() => onNavigate('profile')}
                 testID="profile-button"
+                hitSlop={8}
               >
                 <Text style={styles.iconButtonText}>👤</Text>
               </Pressable>
 
               {onOpenNotifications ? (
                 <Pressable
-                  style={styles.iconButton}
+                  style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
                   onPress={onOpenNotifications}
                   testID="notifications-button"
+                  hitSlop={8}
                 >
                   <Text style={styles.iconButtonText}>🔔</Text>
                   {unreadNotificationsCount > 0 ? (
@@ -61,20 +79,55 @@ export function HomeScreen({
               ) : null}
 
               {onLogout ? (
-                <Pressable style={styles.logoutButton} onPress={onLogout} testID="logout-button">
+                <Pressable
+                  style={({ pressed }) => [styles.logoutButton, pressed && styles.pressed]}
+                  onPress={onLogout}
+                  testID="logout-button"
+                >
                   <Text style={styles.logoutButtonText}>Sair</Text>
                 </Pressable>
               ) : null}
             </View>
           </View>
           <Text style={styles.title}>EcoSmart Admin</Text>
-          <Text style={styles.subtitle}>Perfil Administrador</Text>
+          <Text style={styles.subtitle}>Gestão ambiental e governança do ecossistema.</Text>
         </View>
 
-        <Text style={styles.sectionTitle}>Funcionalidades do MVP</Text>
+        <PrimaryButton
+          title="Ver registros gerais"
+          onPress={() => onNavigate('records')}
+          style={styles.mainAction}
+        />
+
+        <Text style={styles.sectionTitle}>Resumo do ecossistema</Text>
+        <View style={styles.summaryGrid}>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryValue}>{recordsCount}</Text>
+            <Text style={styles.summaryLabel}>Registros</Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={[styles.summaryValue, { color: colors.warning }]}>{pendingRecordsCount}</Text>
+            <Text style={styles.summaryLabel}>Pendentes</Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryValue}>{wasteTypesCount}</Text>
+            <Text style={styles.summaryLabel}>Resíduos</Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={[styles.summaryValue, { color: colors.info }]}>{collectionPointsCount}</Text>
+            <Text style={styles.summaryLabel}>Pontos</Text>
+          </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>Acessos administrativos</Text>
 
         {actions.map((item) => (
-          <Pressable key={item.key} onPress={() => onNavigate(item.key)}>
+          <Pressable
+            key={item.key}
+            android_ripple={{ color: colors.primarySoft }}
+            style={({ pressed }) => [pressed && styles.cardPressed]}
+            onPress={() => onNavigate(item.key)}
+          >
             <AppCard title={item.title} description={item.description} />
           </Pressable>
         ))}
@@ -85,12 +138,22 @@ export function HomeScreen({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 20 },
+  pressed: {
+    opacity: 0.72,
+  },
+  cardPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.99 }],
+  },
+  content: {
+    padding: spacing.lg,
+    paddingBottom: 36,
+  },
   header: {
     backgroundColor: colors.primary,
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 20,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    marginBottom: spacing.md,
   },
   headerTop: {
     flexDirection: 'row',
@@ -120,7 +183,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -4,
     right: -4,
-    backgroundColor: '#D32F2F',
+    backgroundColor: colors.danger,
     borderRadius: 10,
     minWidth: 18,
     height: 18,
@@ -136,7 +199,7 @@ const styles = StyleSheet.create({
   logoutButton: {
     borderWidth: 1,
     borderColor: '#FFFFFF',
-    borderRadius: 999,
+    borderRadius: radius.pill,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
@@ -146,6 +209,36 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   title: { fontSize: 26, fontWeight: '800', color: '#FFFFFF' },
-  subtitle: { fontSize: 16, color: '#E8F5E9', marginTop: 6 },
-  sectionTitle: { fontSize: 20, fontWeight: '700', color: colors.text, marginBottom: 14 },
+  subtitle: { fontSize: 16, color: colors.primarySoft, marginTop: 6 },
+  mainAction: {
+    marginBottom: spacing.lg,
+  },
+  sectionTitle: { fontSize: 18, fontWeight: '800', color: colors.text, marginBottom: spacing.sm },
+  summaryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  summaryCard: {
+    ...shadow.card,
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    flexBasis: '48%',
+    padding: spacing.md,
+    shadowColor: colors.primaryDark,
+  },
+  summaryValue: {
+    color: colors.primary,
+    fontSize: 23,
+    fontWeight: '900',
+  },
+  summaryLabel: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: spacing.xs,
+  },
 });

@@ -95,7 +95,7 @@ describe('AvailableDiscardsScreen Coletor', () => {
       />
     );
 
-    fireEvent.changeText(getByPlaceholderText('🔍 Buscar por cidadão, bairro, endereço...'), 'Centro');
+    fireEvent.changeText(getByPlaceholderText('🔍 Buscar descartes...'), 'Centro');
     expect(getByText(/Centro/)).toBeTruthy();
 
     fireEvent.press(getByText('Mais próximos (GPS)'));
@@ -107,7 +107,7 @@ describe('AvailableDiscardsScreen Coletor', () => {
     const onOpenDetails = jest.fn();
     const onBack = jest.fn();
 
-    const { getByText } = render(
+    const { getByLabelText } = render(
       <AvailableDiscardsScreen
         items={mockDiscards}
         selectedType="Todos"
@@ -117,7 +117,7 @@ describe('AvailableDiscardsScreen Coletor', () => {
       />
     );
 
-    fireEvent.press(getByText('Voltar'));
+    fireEvent.press(getByLabelText('Voltar'));
     expect(onBack).toHaveBeenCalled();
   });
 
@@ -138,7 +138,7 @@ describe('AvailableDiscardsScreen Coletor', () => {
       />
     );
 
-    const collectButtons = getAllByText('✅ Coletar');
+    const collectButtons = getAllByText('Confirmar coleta');
     expect(collectButtons.length).toBeGreaterThan(0);
     fireEvent.press(collectButtons[0]);
   });

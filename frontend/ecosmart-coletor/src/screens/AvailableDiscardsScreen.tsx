@@ -1,8 +1,20 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, FlatList, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Pressable,
+  Alert,
+  FlatList,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { EmptyState } from '../components/EmptyState';
+import { ScreenHeader } from '../components/ScreenHeader';
 import { CollectorDiscard, wasteTypes } from '../data/mockData';
 import { colors } from '../theme/colors';
+import { radius, shadow, spacing } from '../theme/layout';
 import { formatDistance } from '../utils/geoUtils';
 
 type SortOption = 'recentes' | 'antigos' | 'proximos';
@@ -85,10 +97,11 @@ export function AvailableDiscardsScreen({
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Descartes disponíveis</Text>
-        <Text style={styles.subtitle}>Consulte detalhes, trace rotas e realize a coleta em um só lugar.</Text>
-      </View>
+      <ScreenHeader
+        title="Descartes disponíveis"
+        subtitle="Consulte detalhes, trace rotas e realize coletas."
+        onBack={onBack}
+      />
 
       {/* Busca em tempo real */}
       <View style={styles.searchContainer}>
@@ -96,7 +109,7 @@ export function AvailableDiscardsScreen({
           style={styles.searchInput}
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholder="🔍 Buscar por cidadão, bairro, endereço..."
+          placeholder="🔍 Buscar descartes..."
           placeholderTextColor={colors.muted}
         />
         {searchQuery ? (
@@ -133,26 +146,35 @@ export function AvailableDiscardsScreen({
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         ListHeaderComponent={
-          <View style={styles.filters}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filters}
+          >
             {wasteTypes.map((type) => (
               <Pressable
                 key={type}
-                style={[styles.filter, selectedType === type && styles.filterSelected]}
+                android_ripple={{ color: colors.primarySoft }}
+                style={({ pressed }) => [
+                  styles.filter,
+                  selectedType === type && styles.filterSelected,
+                  pressed && styles.pressed,
+                ]}
                 onPress={() => onSelectType(type)}
               >
                 <Text style={[styles.filterText, selectedType === type && styles.filterTextSelected]}>{type}</Text>
               </Pressable>
             ))}
-          </View>
+          </ScrollView>
         }
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>Nenhum descarte pendente para este filtro.</Text>
-          </View>
-        }
+        ListEmptyComponent={<EmptyState title="Nenhum descarte pendente." message="Quando houver registros para esse filtro, eles aparecerão aqui." />}
         renderItem={({ item }) => (
           <View style={styles.card}>
-            <Pressable onPress={() => onOpenDetails(item)}>
+            <Pressable
+              android_ripple={{ color: colors.primarySoft }}
+              onPress={() => onOpenDetails(item)}
+              style={({ pressed }) => [styles.cardTouchArea, pressed && styles.cardPressed]}
+            >
               <View style={styles.cardTop}>
                 <Text style={styles.cardTitle}>{item.wasteType}</Text>
                 <View style={styles.badgesRow}>
@@ -166,44 +188,32 @@ export function AvailableDiscardsScreen({
               </View>
 
               <Text style={styles.cardText}>{item.quantity}</Text>
-              {item.cep ? <Text style={styles.cardMeta}>CEP: {item.cep}</Text> : null}
-              <Text style={styles.cardMeta}>Bairro: {item.neighborhood} - {item.city || 'Cáceres'}/MT</Text>
-              <Text style={styles.cardAddress}>Endereço: {item.address}</Text>
-              <Text style={styles.cardFooter}>Registrado por {item.citizenName} em {item.createdAt}</Text>
+              <Text style={styles.cardMeta}>{item.neighborhood} - {item.city || 'Cáceres'}/MT</Text>
+              <Text style={styles.cardAddress}>{item.address}</Text>
+              <Text style={styles.cardFooter}>{item.citizenName} • {item.createdAt}</Text>
             </Pressable>
 
             {/* Ações Rápidas no Card */}
             <View style={styles.cardActionsRow}>
               <Pressable
-                style={styles.cardRouteButton}
+                style={({ pressed }) => [styles.cardRouteButton, pressed && styles.cardPressed]}
                 onPress={() => handleStartRoute(item)}
               >
-                <Text style={styles.cardRouteButtonText}>🗺️ Rota GPS</Text>
+                <Text style={styles.cardRouteButtonText}>Ver rota</Text>
               </Pressable>
 
               {onCollect ? (
                 <Pressable
-                  style={styles.cardCollectButton}
+                  style={({ pressed }) => [styles.cardCollectButton, pressed && styles.cardPressed]}
                   onPress={() => handleDirectCollect(item)}
                 >
-                  <Text style={styles.cardCollectButtonText}>✅ Coletar</Text>
+                  <Text style={styles.cardCollectButtonText}>Confirmar coleta</Text>
                 </Pressable>
               ) : null}
-
-              <Pressable
-                style={styles.cardDetailsButton}
-                onPress={() => onOpenDetails(item)}
-              >
-                <Text style={styles.cardDetailsButtonText}>📋 Detalhes</Text>
-              </Pressable>
             </View>
           </View>
         )}
       />
-
-      <Pressable style={styles.backButton} onPress={onBack}>
-        <Text style={styles.backButtonText}>Voltar</Text>
-      </Pressable>
     </SafeAreaView>
   );
 }
@@ -212,6 +222,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  pressed: {
+    opacity: 0.82,
   },
   header: {
     backgroundColor: colors.primary,
@@ -228,14 +241,14 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: '#E3F2FD',
+    color: colors.primarySoft,
     marginTop: 6,
     lineHeight: 20,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 20,
+    marginHorizontal: spacing.lg,
     marginBottom: 8,
     position: 'relative',
   },
@@ -243,8 +256,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#DADCE0',
-    borderRadius: 12,
+    borderColor: colors.border,
+    borderRadius: radius.md,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
@@ -265,7 +278,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: 6,
-    marginHorizontal: 20,
+    marginHorizontal: spacing.lg,
     marginBottom: 10,
   },
   sortLabel: {
@@ -274,10 +287,10 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
   sortChip: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: radius.sm,
   },
   sortChipActive: {
     backgroundColor: colors.primary,
@@ -291,22 +304,19 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   list: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: 28,
   },
   filters: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 14,
+    gap: spacing.sm,
+    paddingBottom: spacing.md,
   },
   filter: {
-    backgroundColor: '#E3F2FD',
-    borderRadius: 999,
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.pill,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    marginRight: 8,
-    marginBottom: 8,
   },
   filterSelected: {
     backgroundColor: colors.primary,
@@ -320,12 +330,21 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   card: {
+    ...shadow.card,
     backgroundColor: colors.card,
-    borderRadius: 14,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
-    padding: 16,
-    marginBottom: 12,
+    borderColor: colors.cardBorder,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    shadowColor: colors.primaryDark,
+  },
+  cardTouchArea: {
+    borderRadius: radius.sm,
+  },
+  cardPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.99 }],
   },
   cardTop: {
     flexDirection: 'row',
@@ -344,19 +363,19 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   distanceBadge: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: colors.primarySoft,
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   distanceBadgeText: {
-    color: '#2E7D32',
+    color: colors.primaryDark,
     fontSize: 11,
     fontWeight: '700',
   },
   status: {
-    backgroundColor: '#FFF3E0',
-    color: '#E65100',
+    backgroundColor: colors.warningSoft,
+    color: colors.warning,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -394,30 +413,31 @@ const styles = StyleSheet.create({
   cardActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
+    borderTopColor: colors.cardBorder,
     paddingTop: 10,
+    marginTop: spacing.sm,
   },
   cardRouteButton: {
     flex: 1,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: '#C8E6C9',
-    borderRadius: 8,
+    borderColor: colors.primaryMuted,
+    borderRadius: radius.sm,
     paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cardRouteButtonText: {
-    color: '#2E7D32',
+    color: colors.primaryDark,
     fontSize: 12,
     fontWeight: '800',
   },
   cardCollectButton: {
     flex: 1,
     backgroundColor: colors.primary,
-    borderRadius: 8,
+    borderRadius: radius.sm,
     paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',

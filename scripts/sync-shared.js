@@ -15,7 +15,8 @@ const targetApps = [
   path.join(rootDir, 'frontend', 'ecosmart-admin', 'src'),
 ];
 
-const foldersToSync = ['models', 'services', 'utils', 'components', 'data', 'hooks', 'theme'];
+// A pasta theme fica fora da sincronização porque cada app possui identidade visual própria.
+const foldersToSync = ['models', 'services', 'utils', 'components', 'data', 'hooks'];
 
 function copyRecursive(src, dest) {
   if (!fs.existsSync(src)) return;

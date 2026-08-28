@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import {
+  Pressable,
   ActivityIndicator,
   Alert,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,7 +10,10 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { PrimaryButton } from '../components/PrimaryButton';
+import { ScreenHeader } from '../components/ScreenHeader';
 import { colors } from '../theme/colors';
+import { radius, spacing } from '../theme/layout';
 import { wasteTypes } from '../data/mockData';
 import { DEFAULT_USER_COORDINATES } from '../utils/geoUtils';
 import { generateEntityId } from '../utils/idUtils';
@@ -55,8 +58,11 @@ export function RegisterDiscardScreen({
   const [selectedType, setSelectedType] = useState(wasteTypes[0]);
   const [quantity, setQuantity] = useState('');
   const [observation, setObservation] = useState('');
+  const [errors, setErrors] = useState<{ quantity?: string; type?: string }>({});
   
   // Estados de Endereço e CEP (Cáceres - MT) inicializados com o endereço padrão do usuário
+  const hasDefaultAddress = Boolean(defaultUserAddress?.endereco);
+  const [showAddressFields, setShowAddressFields] = useState(!hasDefaultAddress);
   const [cep, setCep] = useState(defaultUserAddress?.cep || '78200-000');
   const [address, setAddress] = useState(defaultUserAddress?.endereco || '');
   const [numero, setNumero] = useState(defaultUserAddress?.numero || '');
@@ -68,6 +74,12 @@ export function RegisterDiscardScreen({
   // Estados de GPS
   const [hasGps, setHasGps] = useState(false);
   const [coordinates, setCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
+
+  const locationSummary = [
+    address ? `${address}${numero ? ', ' + numero : ''}` : null,
+    neighborhood,
+    city,
+  ].filter(Boolean).join(' • ');
 
   /**
    * Busca dados de endereço automaticamente via API ao digitar o CEP
@@ -125,6 +137,11 @@ export function RegisterDiscardScreen({
 
   /** Valida e submete o novo descarte */
   const handleSave = () => {
+    const nextErrors: { quantity?: string; type?: string } = {};
+    if (!selectedType) nextErrors.type = 'Selecione uma categoria.';
+    if (!quantity.trim()) nextErrors.quantity = 'Informe a quantidade.';
+    setErrors(nextErrors);
+
     if (!selectedType || !quantity.trim()) {
       Alert.alert('Dados incompletos', 'Selecione o tipo e informe a quantidade.');
       return;
@@ -161,11 +178,6 @@ export function RegisterDiscardScreen({
         'Modo Offline',
         'Você está offline. Sua solicitação foi salva no dispositivo e será sincronizada com o Firebase ao reconectar.'
       );
-    } else {
-      Alert.alert(
-        'Descarte Registrado',
-        'Seu descarte em Cáceres foi registrado com sucesso e já está disponível para os coletores.'
-      );
     }
 
     onBack();
@@ -173,24 +185,29 @@ export function RegisterDiscardScreen({
 
   return (
     <SafeAreaView style={styles.container}>
+      <ScreenHeader
+        title="Registrar descarte"
+        subtitle="Informe os dados do resíduo."
+        onBack={onBack}
+      />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {/* Cabeçalho informativo */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Registrar descarte</Text>
-          <Text style={styles.subtitle}>
-            Cadastre os materiais recicláveis para coleta em Cáceres - MT.
-          </Text>
-        </View>
-
         {/* Formulário de Registro */}
         <View style={styles.card}>
-          <Text style={styles.label}>Tipo de resíduo</Text>
+          <Text style={styles.sectionLabel}>O que você está descartando?</Text>
           <View style={styles.tagsContainer}>
             {wasteTypes.map((type) => (
               <Pressable
                 key={type}
-                style={[styles.tag, selectedType === type && styles.tagSelected]}
-                onPress={() => setSelectedType(type)}
+                android_ripple={{ color: colors.primarySoft }}
+                style={({ pressed }) => [
+                  styles.tag,
+                  selectedType === type && styles.tagSelected,
+                  pressed && styles.tagPressed,
+                ]}
+                onPress={() => {
+                  setSelectedType(type);
+                  setErrors((prev) => ({ ...prev, type: undefined }));
+                }}
               >
                 <Text style={[styles.tagText, selectedType === type && styles.tagTextSelected]}>
                   {type}
@@ -198,94 +215,126 @@ export function RegisterDiscardScreen({
               </Pressable>
             ))}
           </View>
+          {errors.type ? <Text style={styles.errorText}>{errors.type}</Text> : null}
 
           <Text style={styles.label}>Quantidade</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.quantity && styles.inputError]}
             value={quantity}
-            onChangeText={setQuantity}
+            onChangeText={(text) => {
+              setQuantity(text);
+              if (errors.quantity) setErrors((prev) => ({ ...prev, quantity: undefined }));
+            }}
             placeholder="Ex.: 4 caixas, 10 garrafas PET, 2 sacos"
             placeholderTextColor={colors.muted}
+            returnKeyType="next"
           />
+          {errors.quantity ? <Text style={styles.errorText}>{errors.quantity}</Text> : null}
 
-          {/* Aviso de Endereço Padrão */}
-          {defaultUserAddress?.endereco ? (
-            <View style={styles.defaultAddressBadge}>
-              <Text style={styles.defaultAddressBadgeText}>
-                🏠 Endereço padrão carregado do seu perfil ({defaultUserAddress.endereco}{defaultUserAddress.numero ? ', ' + defaultUserAddress.numero : ''})
+          <View style={styles.locationHeader}>
+            <Text style={styles.sectionLabel}>Local da retirada</Text>
+            {!showAddressFields ? (
+              <Pressable
+                style={({ pressed }) => [styles.inlineButton, pressed && styles.tagPressed]}
+                onPress={() => setShowAddressFields(true)}
+              >
+                <Text style={styles.inlineButtonText}>Alterar endereço</Text>
+              </Pressable>
+            ) : null}
+          </View>
+
+          {!showAddressFields ? (
+            <View style={styles.addressSummary}>
+              <Text style={styles.addressSummaryTitle}>Endereço carregado do perfil</Text>
+              <Text style={styles.addressSummaryText}>
+                {locationSummary || 'Cáceres - MT'}
               </Text>
             </View>
           ) : null}
 
-          {/* Seção de Endereço com CEP Automático */}
-          <Text style={styles.label}>CEP (Cáceres - MT)</Text>
-          <View style={styles.cepRow}>
-            <TextInput
-              style={[styles.input, styles.cepInput]}
-              value={cep}
-              onChangeText={handleCepChange}
-              placeholder="78200-000"
-              placeholderTextColor={colors.muted}
-              keyboardType="numeric"
-              maxLength={9}
-            />
-            <Pressable
-              style={[styles.cepSearchButton, isSearchingCep && styles.buttonDisabled]}
-              onPress={handleSearchCepButton}
-              disabled={isSearchingCep}
-            >
-              {isSearchingCep ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.cepSearchButtonText}>🔍 Buscar CEP</Text>
-              )}
-            </Pressable>
-          </View>
+          {showAddressFields ? (
+            <>
+              <Text style={styles.label}>CEP (Cáceres - MT)</Text>
+              <View style={styles.cepRow}>
+                <TextInput
+                  style={[styles.input, styles.cepInput]}
+                  value={cep}
+                  onChangeText={handleCepChange}
+                  placeholder="78200-000"
+                  placeholderTextColor={colors.muted}
+                  keyboardType="numeric"
+                  maxLength={9}
+                  returnKeyType="search"
+                />
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.cepSearchButton,
+                    isSearchingCep && styles.buttonDisabled,
+                    pressed && !isSearchingCep && styles.tagPressed,
+                  ]}
+                  onPress={handleSearchCepButton}
+                  disabled={isSearchingCep}
+                >
+                  {isSearchingCep ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.cepSearchButtonText}>🔍 Buscar CEP</Text>
+                  )}
+                </Pressable>
+              </View>
 
-          {cepFoundMessage ? (
-            <View style={styles.cepFeedbackBadge}>
-              <Text style={styles.cepFeedbackText}>{cepFoundMessage}</Text>
-            </View>
+              {cepFoundMessage ? (
+                <View style={styles.cepFeedbackBadge}>
+                  <Text style={styles.cepFeedbackText}>{cepFoundMessage}</Text>
+                </View>
+              ) : null}
+
+              {/* Botão de Localização GPS */}
+              <Pressable
+                style={({ pressed }) => [styles.gpsButton, pressed && styles.tagPressed]}
+                onPress={handleUseGps}
+              >
+                <Text style={styles.gpsButtonText}>
+                  {hasGps ? '📍 Atualizar Localização GPS (Cáceres)' : '📍 Usar minha localização atual (GPS)'}
+                </Text>
+              </Pressable>
+
+              <Text style={styles.label}>Endereço / Logradouro</Text>
+              <TextInput
+                style={styles.input}
+                value={address}
+                onChangeText={setAddress}
+                placeholder="Rua, Avenida, Travessa"
+                placeholderTextColor={colors.muted}
+                returnKeyType="next"
+              />
+
+              <Text style={styles.label}>Número</Text>
+              <TextInput
+                style={styles.input}
+                value={numero}
+                onChangeText={setNumero}
+                placeholder="Ex: 210, 100, s/n, Apto 12"
+                placeholderTextColor={colors.muted}
+                returnKeyType="next"
+              />
+
+              <Text style={styles.label}>Bairro em Cáceres</Text>
+              <TextInput
+                style={styles.input}
+                value={neighborhood}
+                onChangeText={setNeighborhood}
+                placeholder="Ex.: Centro, Cavalhada, Santos Dumont, Cohab Nova"
+                placeholderTextColor={colors.muted}
+                returnKeyType="next"
+              />
+
+              <View style={styles.cityBadge}>
+                <Text style={styles.cityBadgeLabel}>Município Atendido:</Text>
+                <Text style={styles.cityBadgeValue}>🏙️ Cáceres - MT (Pantanal)</Text>
+              </View>
+            </>
           ) : null}
-
-          {/* Botão de Localização GPS */}
-          <Pressable style={styles.gpsButton} onPress={handleUseGps}>
-            <Text style={styles.gpsButtonText}>
-              {hasGps ? '📍 Atualizar Localização GPS (Cáceres)' : '📍 Usar minha localização atual (GPS)'}
-            </Text>
-          </Pressable>
-
-          <Text style={styles.label}>Endereço / Logradouro</Text>
-          <TextInput
-            style={styles.input}
-            value={address}
-            onChangeText={setAddress}
-            placeholder="Rua, Avenida, Travessa"
-            placeholderTextColor={colors.muted}
-          />
-
-          <Text style={styles.label}>Número</Text>
-          <TextInput
-            style={styles.input}
-            value={numero}
-            onChangeText={setNumero}
-            placeholder="Ex: 210, 100, s/n, Apto 12"
-            placeholderTextColor={colors.muted}
-          />
-
-          <Text style={styles.label}>Bairro em Cáceres</Text>
-          <TextInput
-            style={styles.input}
-            value={neighborhood}
-            onChangeText={setNeighborhood}
-            placeholder="Ex.: Centro, Cavalhada, Santos Dumont, Cohab Nova"
-            placeholderTextColor={colors.muted}
-          />
-
-          <View style={styles.cityBadge}>
-            <Text style={styles.cityBadgeLabel}>Município Atendido:</Text>
-            <Text style={styles.cityBadgeValue}>🏙️ Cáceres - MT (Pantanal)</Text>
-          </View>
 
           <Text style={styles.label}>Observação para o Coletor</Text>
           <TextInput
@@ -299,13 +348,7 @@ export function RegisterDiscardScreen({
           />
 
           {/* Botões de Ação */}
-          <Pressable style={styles.primaryButton} onPress={handleSave}>
-            <Text style={styles.primaryButtonText}>Salvar descarte</Text>
-          </Pressable>
-
-          <Pressable style={styles.secondaryButton} onPress={onBack}>
-            <Text style={styles.secondaryButtonText}>Voltar</Text>
-          </Pressable>
+          <PrimaryButton title="Salvar descarte" onPress={handleSave} style={styles.primaryButton} />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -318,7 +361,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    padding: 16,
+    padding: spacing.lg,
+    paddingTop: spacing.sm,
     paddingBottom: 40,
   },
   header: {
@@ -336,11 +380,18 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: radius.lg,
+    padding: spacing.md,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: colors.cardBorder,
     elevation: 2,
+  },
+  sectionLabel: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: spacing.sm,
+    marginTop: spacing.sm,
   },
   label: {
     fontSize: 14,
@@ -353,11 +404,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAFAFA',
     borderWidth: 1,
     borderColor: '#CFD8DC',
-    borderRadius: 8,
+    borderRadius: radius.sm,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
     color: colors.text,
+  },
+  inputError: {
+    borderColor: colors.danger,
+    backgroundColor: colors.dangerSoft,
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: spacing.xs,
   },
   textArea: {
     height: 70,
@@ -373,10 +434,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#ECEFF1',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: radius.pill,
   },
   tagSelected: {
     backgroundColor: colors.primary,
+  },
+  tagPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.99 }],
   },
   tagText: {
     fontSize: 13,
@@ -387,17 +452,54 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   defaultAddressBadge: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: '#A5D6A7',
+    borderColor: colors.primaryMuted,
     borderRadius: 8,
     padding: 10,
     marginTop: 10,
   },
   defaultAddressBadgeText: {
     fontSize: 12,
-    color: '#2E7D32',
+    color: colors.primaryDark,
     fontWeight: '600',
+  },
+  locationHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  inlineButton: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  inlineButtonText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  addressSummary: {
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: colors.primaryMuted,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  addressSummaryTitle: {
+    color: colors.primaryDark,
+    fontSize: 12,
+    fontWeight: '900',
+    marginBottom: spacing.xs,
+  },
+  addressSummaryText: {
+    color: colors.text,
+    fontSize: 14,
+    lineHeight: 20,
   },
   cepRow: {
     flexDirection: 'row',
@@ -422,17 +524,17 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   cepFeedbackBadge: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: colors.primarySoft,
     padding: 8,
     borderRadius: 6,
     marginTop: 6,
   },
   cepFeedbackText: {
-    color: '#2E7D32',
+    color: colors.primaryDark,
     fontSize: 12,
   },
   gpsButton: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
     borderColor: colors.primary,
     borderRadius: 8,
@@ -464,28 +566,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
     marginTop: 20,
-    elevation: 2,
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  secondaryButton: {
-    backgroundColor: '#ECEFF1',
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  secondaryButtonText: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: '600',
   },
 });

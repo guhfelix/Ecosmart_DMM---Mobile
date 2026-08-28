@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import { RegisterDiscardScreen } from '../RegisterDiscardScreen';
 
@@ -31,7 +31,7 @@ describe('RegisterDiscardScreen Cidadão', () => {
         offline: false,
       })
     );
-    expect(Alert.alert).toHaveBeenCalledWith('Descarte Registrado', expect.any(String));
+    expect(Alert.alert).not.toHaveBeenCalledWith('Descarte Registrado', expect.any(String));
     expect(onBack).toHaveBeenCalled();
   });
 
@@ -82,7 +82,9 @@ describe('RegisterDiscardScreen Cidadão', () => {
     );
 
     const cepInput = getByPlaceholderText('78200-000');
-    fireEvent.changeText(cepInput, '78200000');
+    await act(async () => {
+      fireEvent.changeText(cepInput, '78200000');
+    });
 
     await waitFor(() => {
       expect(getAllByText(/Cáceres - MT/).length).toBeGreaterThan(0);
@@ -105,11 +107,11 @@ describe('RegisterDiscardScreen Cidadão', () => {
     const onSave = jest.fn();
     const onBack = jest.fn();
 
-    const { getByText } = render(
+    const { getByLabelText } = render(
       <RegisterDiscardScreen onSave={onSave} onBack={onBack} isOffline={false} />
     );
 
-    fireEvent.press(getByText('Voltar'));
+    fireEvent.press(getByLabelText('Voltar'));
     expect(onBack).toHaveBeenCalled();
   });
 });

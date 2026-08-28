@@ -12,6 +12,9 @@ import { CollectedDiscardsScreen } from './src/screens/CollectedDiscardsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { NotificationModal } from './src/components/NotificationModal';
+import { ScreenTransition } from './src/components/ScreenTransition';
+import { LoadingScreen } from './src/components/LoadingScreen';
+import { FeedbackMessage } from './src/components/FeedbackMessage';
 
 // Modelos, Dados e Serviços
 import { CollectorDiscard, initialDiscards } from './src/data/mockData';
@@ -48,6 +51,7 @@ export default function App() {
   const [registeredUsers, setRegisteredUsers] = useState<RegisteredUser[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
 
   // Hook de detecção de conectividade
@@ -317,6 +321,7 @@ export default function App() {
       'collection'
     );
     setNotifications((prev) => [newNotif, ...prev]);
+    setFeedback('✓ Coleta registrada com sucesso.');
 
     setScreen('collected');
   };
@@ -473,6 +478,7 @@ export default function App() {
             item={selectedItem}
             onCollect={markAsCollected}
             onBack={() => setScreen(detailsBackScreen)}
+            isOffline={isOffline}
           />
         ) : (
           <AvailableDiscardsScreen
@@ -509,6 +515,9 @@ export default function App() {
             onLogout={handleLogout}
             onOpenNotifications={() => setShowNotificationsModal(true)}
             unreadNotificationsCount={unreadCount}
+            currentUser={currentUser}
+            availableCount={pendingItems.length}
+            collectedCount={collectedItems.length}
           />
         );
     }
@@ -525,16 +534,30 @@ export default function App() {
     items,
   ]);
 
+  if (!isReady) {
+    return (
+      <SafeAreaProvider>
+        <LoadingScreen />
+        <StatusBar style="light" />
+      </SafeAreaProvider>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <OfflineBanner isOffline={isOffline} />
-      {renderScreen}
+      {currentUser ? (
+        <ScreenTransition screenKey={screen}>{renderScreen}</ScreenTransition>
+      ) : (
+        renderScreen
+      )}
       <NotificationModal
         visible={showNotificationsModal}
         notifications={notifications}
         onClose={() => setShowNotificationsModal(false)}
         onMarkAllAsRead={() => setNotifications((prev) => markAllNotificationsAsRead(prev))}
       />
+      <FeedbackMessage message={feedback} onHide={() => setFeedback(null)} />
       <StatusBar style="light" />
     </SafeAreaProvider>
   );

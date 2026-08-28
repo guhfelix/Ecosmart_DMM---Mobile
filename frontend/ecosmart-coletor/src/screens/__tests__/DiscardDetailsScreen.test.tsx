@@ -7,6 +7,10 @@ import { CollectorDiscard } from '../../models';
 jest.spyOn(Alert, 'alert');
 
 describe('DiscardDetailsScreen Coletor', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   const mockItem: CollectorDiscard = {
     id: 'disc-1',
     citizenName: 'Maria Cidadã',
@@ -71,9 +75,9 @@ describe('DiscardDetailsScreen Coletor', () => {
       />
     );
 
-    fireEvent.press(getByText('Marcar como coletado'));
+    fireEvent.press(getByText('Confirmar coleta'));
     expect(onCollect).toHaveBeenCalledWith('disc-1');
-    expect(Alert.alert).toHaveBeenCalledWith('Coleta registrada', expect.any(String));
+    expect(Alert.alert).not.toHaveBeenCalledWith('Coleta registrada', expect.any(String));
   });
 
   it('deve exibir aviso offline ao marcar coleta sem internet', () => {
@@ -89,7 +93,7 @@ describe('DiscardDetailsScreen Coletor', () => {
       />
     );
 
-    fireEvent.press(getByText('Marcar como coletado'));
+    fireEvent.press(getByText('Confirmar coleta'));
     expect(onCollect).toHaveBeenCalledWith('disc-1');
     expect(Alert.alert).toHaveBeenCalledWith('Modo Offline', expect.stringContaining('localmente'));
   });
@@ -98,7 +102,7 @@ describe('DiscardDetailsScreen Coletor', () => {
     const onCollect = jest.fn();
     const onBack = jest.fn();
 
-    const { getByText } = render(
+    const { getByLabelText } = render(
       <DiscardDetailsScreen
         item={mockItem}
         onCollect={onCollect}
@@ -106,7 +110,7 @@ describe('DiscardDetailsScreen Coletor', () => {
       />
     );
 
-    fireEvent.press(getByText('Voltar'));
+    fireEvent.press(getByLabelText('Voltar'));
     expect(onBack).toHaveBeenCalled();
   });
 });

@@ -1,15 +1,26 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppCard } from '../components/AppCard';
-import { homeItems } from '../data/mockData';
+import { PrimaryButton } from '../components/PrimaryButton';
+import type { Usuario } from '../models';
 import { colors } from '../theme/colors';
+import { radius, shadow, spacing } from '../theme/layout';
 
 type Props = {
   onNavigate: (screen: 'available' | 'collected' | 'profile') => void;
   onLogout?: () => void;
   onOpenNotifications?: () => void;
   unreadNotificationsCount?: number;
+  currentUser?: Usuario | null;
+  availableCount?: number;
+  collectedCount?: number;
 };
 
 export function HomeScreen({
@@ -17,13 +28,13 @@ export function HomeScreen({
   onLogout,
   onOpenNotifications,
   unreadNotificationsCount = 0,
+  currentUser,
+  availableCount = 0,
+  collectedCount = 0,
 }: Props) {
+  const firstName = currentUser?.nome?.trim().split(' ')[0] || 'coletor';
+
   const actions = [
-    {
-      key: 'available',
-      title: '📦 Descartes disponíveis',
-      description: 'Visualizar resíduos em Cáceres com distâncias GPS, rotas e coleta rápida.',
-    },
     {
       key: 'collected',
       title: '🚛 Coletas realizadas',
@@ -44,18 +55,20 @@ export function HomeScreen({
             <Text style={styles.logo}>♻️</Text>
             <View style={styles.headerActions}>
               <Pressable
-                style={styles.iconButton}
+                style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
                 onPress={() => onNavigate('profile')}
                 testID="profile-button"
+                hitSlop={8}
               >
                 <Text style={styles.iconButtonText}>👤</Text>
               </Pressable>
 
               {onOpenNotifications ? (
                 <Pressable
-                  style={styles.iconButton}
+                  style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
                   onPress={onOpenNotifications}
                   testID="notifications-button"
+                  hitSlop={8}
                 >
                   <Text style={styles.iconButtonText}>🔔</Text>
                   {unreadNotificationsCount > 0 ? (
@@ -67,20 +80,48 @@ export function HomeScreen({
               ) : null}
 
               {onLogout ? (
-                <Pressable style={styles.logoutButton} onPress={onLogout} testID="logout-button">
+                <Pressable
+                  style={({ pressed }) => [styles.logoutButton, pressed && styles.pressed]}
+                  onPress={onLogout}
+                  testID="logout-button"
+                >
                   <Text style={styles.logoutButtonText}>Sair</Text>
                 </Pressable>
               ) : null}
             </View>
           </View>
           <Text style={styles.title}>EcoSmart Empresa/Catador</Text>
-          <Text style={styles.subtitle}>Perfil Empresa/Catador</Text>
+          <Text style={styles.greeting}>Olá, {firstName}</Text>
+          <Text style={styles.subtitle}>Organize suas coletas em Cáceres.</Text>
         </View>
 
-        <Text style={styles.sectionTitle}>Funcionalidades</Text>
+        <PrimaryButton
+          title="Ver descartes disponíveis"
+          onPress={() => onNavigate('available')}
+          style={styles.mainAction}
+        />
+
+        <Text style={styles.sectionTitle}>Resumo operacional</Text>
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryValue}>{availableCount}</Text>
+            <Text style={styles.summaryLabel}>Disponíveis</Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={[styles.summaryValue, { color: colors.success }]}>{collectedCount}</Text>
+            <Text style={styles.summaryLabel}>Coletados</Text>
+          </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>Acessos rápidos</Text>
 
         {actions.map((item, index) => (
-          <Pressable key={`${item.key}-${index}`} onPress={() => onNavigate(item.key)}>
+          <Pressable
+            key={`${item.key}-${index}`}
+            android_ripple={{ color: colors.primarySoft }}
+            style={({ pressed }) => [pressed && styles.cardPressed]}
+            onPress={() => onNavigate(item.key)}
+          >
             <AppCard title={item.title} description={item.description} />
           </Pressable>
         ))}
@@ -91,12 +132,22 @@ export function HomeScreen({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 20 },
+  pressed: {
+    opacity: 0.72,
+  },
+  cardPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.99 }],
+  },
+  content: {
+    padding: spacing.lg,
+    paddingBottom: 36,
+  },
   header: {
     backgroundColor: colors.primary,
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 20,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    marginBottom: spacing.md,
   },
   headerTop: {
     flexDirection: 'row',
@@ -126,7 +177,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -4,
     right: -4,
-    backgroundColor: '#D32F2F',
+    backgroundColor: colors.danger,
     borderRadius: 10,
     minWidth: 18,
     height: 18,
@@ -142,7 +193,7 @@ const styles = StyleSheet.create({
   logoutButton: {
     borderWidth: 1,
     borderColor: '#FFFFFF',
-    borderRadius: 999,
+    borderRadius: radius.pill,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
@@ -152,6 +203,41 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   title: { fontSize: 26, fontWeight: '800', color: '#FFFFFF' },
-  subtitle: { fontSize: 14, color: '#E3F2FD', marginTop: 6 },
-  sectionTitle: { fontSize: 20, fontWeight: '700', color: colors.text, marginBottom: 14 },
+  greeting: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '800',
+    marginTop: spacing.md,
+  },
+  subtitle: { fontSize: 14, color: colors.primarySoft, marginTop: 6 },
+  mainAction: {
+    marginBottom: spacing.lg,
+  },
+  sectionTitle: { fontSize: 18, fontWeight: '800', color: colors.text, marginBottom: spacing.sm },
+  summaryRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  summaryCard: {
+    ...shadow.card,
+    flex: 1,
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    padding: spacing.md,
+    shadowColor: colors.primaryDark,
+  },
+  summaryValue: {
+    color: colors.primary,
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  summaryLabel: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: spacing.xs,
+  },
 });

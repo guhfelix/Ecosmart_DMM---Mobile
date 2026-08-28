@@ -1,8 +1,19 @@
 import React, { useMemo, useState } from 'react';
-import { FlatList, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Pressable,
+  FlatList,
+  Image,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { EmptyState } from '../components/EmptyState';
+import { ScreenHeader } from '../components/ScreenHeader';
 import { CollectorDiscard } from '../data/mockData';
 import { colors } from '../theme/colors';
+import { radius, shadow, spacing } from '../theme/layout';
 
 type Props = {
   items: CollectorDiscard[];
@@ -28,10 +39,11 @@ export function CollectedDiscardsScreen({ items, onOpenDetails, onBack }: Props)
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Coletas realizadas</Text>
-        <Text style={styles.subtitle}>Histórico dos descartes marcados como coletados.</Text>
-      </View>
+      <ScreenHeader
+        title="Coletas realizadas"
+        subtitle="Histórico dos descartes marcados como coletados."
+        onBack={onBack}
+      />
 
       {/* Busca em tempo real */}
       <View style={styles.searchContainer}>
@@ -50,16 +62,18 @@ export function CollectedDiscardsScreen({ items, onOpenDetails, onBack }: Props)
       </View>
 
       {filteredItems.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyText}>Nenhuma coleta encontrada com os filtros atuais.</Text>
-        </View>
+        <EmptyState title="Nenhuma coleta encontrada." message="As coletas confirmadas aparecerão aqui." />
       ) : (
         <FlatList
           data={filteredItems}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
-            <Pressable style={styles.card} onPress={() => onOpenDetails(item)}>
+            <Pressable
+              android_ripple={{ color: colors.primarySoft }}
+              style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+              onPress={() => onOpenDetails(item)}
+            >
               <View style={styles.cardTop}>
                 <Text style={styles.cardTitle}>{item.wasteType}</Text>
                 <View style={styles.badgeContainer}>
@@ -81,10 +95,6 @@ export function CollectedDiscardsScreen({ items, onOpenDetails, onBack }: Props)
           )}
         />
       )}
-
-      <Pressable style={styles.backButton} onPress={onBack}>
-        <Text style={styles.backButtonText}>Voltar</Text>
-      </Pressable>
     </SafeAreaView>
   );
 }
@@ -108,7 +118,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   subtitle: {
-    color: '#E3F2FD',
+    color: colors.primarySoft,
     fontSize: 14,
     lineHeight: 20,
     marginTop: 6,
@@ -116,7 +126,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 20,
+    marginHorizontal: spacing.lg,
     marginBottom: 12,
     position: 'relative',
   },
@@ -124,8 +134,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#DADCE0',
-    borderRadius: 12,
+    borderColor: colors.border,
+    borderRadius: radius.md,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
@@ -142,16 +152,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   list: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: 28,
   },
   card: {
+    ...shadow.card,
     backgroundColor: colors.card,
-    borderRadius: 14,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
-    padding: 16,
-    marginBottom: 12,
+    borderColor: colors.cardBorder,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    shadowColor: colors.primaryDark,
+  },
+  cardPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.99 }],
   },
   cardTop: {
     flexDirection: 'row',
@@ -170,8 +186,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   status: {
-    backgroundColor: '#E8F5E9',
-    color: '#2E7D32',
+    backgroundColor: colors.successSoft,
+    color: colors.success,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -179,8 +195,8 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   offlineBadge: {
-    backgroundColor: '#FFF3E0',
-    color: '#E65100',
+    backgroundColor: colors.warningSoft,
+    color: colors.warning,
     borderRadius: 999,
     paddingHorizontal: 8,
     paddingVertical: 4,

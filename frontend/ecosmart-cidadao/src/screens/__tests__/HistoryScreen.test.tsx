@@ -77,9 +77,9 @@ describe('HistoryScreen Cidadão', () => {
 
   it('deve acionar onBack ao clicar em Voltar', () => {
     const onBack = jest.fn();
-    const { getByText } = render(<HistoryScreen items={mockItems} onBack={onBack} />);
+    const { getByLabelText } = render(<HistoryScreen items={mockItems} onBack={onBack} />);
 
-    fireEvent.press(getByText('Voltar'));
+    fireEvent.press(getByLabelText('Voltar'));
     expect(onBack).toHaveBeenCalled();
   });
 });

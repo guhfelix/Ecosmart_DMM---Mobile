@@ -57,6 +57,9 @@ export class CrossAppSyncService {
   }
 
   private initBroadcastChannel() {
+    const isTestEnvironment = typeof process !== 'undefined' && process.env?.NODE_ENV === 'test';
+    if (isTestEnvironment) return;
+
     if (typeof BroadcastChannel !== 'undefined') {
       try {
         this.channel = new BroadcastChannel('ecosmart_realtime_sync_bus');

@@ -9,8 +9,8 @@ describe('HomeScreen Coletor', () => {
     const { getByText } = render(<HomeScreen onNavigate={onNavigate} />);
 
     expect(getByText('EcoSmart Empresa/Catador')).toBeTruthy();
-    expect(getByText('Perfil Empresa/Catador')).toBeTruthy();
-    expect(getByText(/Descartes disponíveis/)).toBeTruthy();
+    expect(getByText(/Meu Perfil/)).toBeTruthy();
+    expect(getByText(/descartes disponíveis/i)).toBeTruthy();
     expect(getByText(/Coletas realizadas/)).toBeTruthy();
   });
 

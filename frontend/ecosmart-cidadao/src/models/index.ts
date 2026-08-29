@@ -1,5 +1,12 @@
+/**
+ * Modelos de Domínio Compartilhados do EcoSmart Mobile.
+ * Centraliza os contratos de tipagem para Cidadão, Coletor e Administrador.
+ */
+
+/** Perfis de usuário aceitos no ecossistema */
 export type PerfilUsuario = 'cidadao' | 'coletor' | 'admin';
 
+/** Entidade de Usuário autenticado e seus dados de perfil */
 export type Usuario = {
   id: string;
   nome: string;
@@ -21,6 +28,7 @@ export type Usuario = {
   updatedAt?: string;
 };
 
+/** Entrada de dados para cadastro de usuário */
 export type AuthUserInput = {
   name: string;
   email: string;
@@ -28,14 +36,17 @@ export type AuthUserInput = {
   accessCode?: string;
 };
 
+/** Sessão autenticada ativa */
 export type AuthSession = {
   user: Usuario;
   token?: string;
   loginAt: string;
 };
 
+/** Status canônico de descarte */
 export type StatusDescarte = 'pendente' | 'visualizado' | 'coletado';
 
+/** Modelo genérico de descarte */
 export type Descarte = {
   id: string;
   usuarioId?: string;
@@ -57,8 +68,10 @@ export type Descarte = {
   offline?: boolean;
 };
 
+/** Status de descarte na visão do Cidadão */
 export type CitizenDiscardStatus = 'Pendente' | 'Coletado' | 'Pendente (Offline)';
 
+/** Item de descarte na interface do Cidadão */
 export type DiscardItem = {
   id: string;
   type: string;
@@ -78,8 +91,10 @@ export type DiscardItem = {
   photoUri?: string;
 };
 
+/** Status de descarte na visão do Coletor */
 export type DiscardStatus = 'pendente' | 'coletado';
 
+/** Item de descarte com geolocalização para o Coletor */
 export type CollectorDiscard = {
   id: string;
   citizenName: string;
@@ -103,12 +118,14 @@ export type CollectorDiscard = {
   photoUri?: string;
 };
 
+/** Tipo de resíduo reciclável */
 export type WasteTypeItem = {
   id: string;
   name: string;
   description: string;
 };
 
+/** Ponto de entrega voluntária (PEV) / Ecoponto */
 export type CollectionPointItem = {
   id: string;
   name: string;
@@ -124,6 +141,7 @@ export type CollectionPointItem = {
   distanceKm?: number;
 };
 
+/** Dica educativa ambiental */
 export type EducationalTipItem = {
   id: string;
   title: string;
@@ -131,8 +149,10 @@ export type EducationalTipItem = {
   content: string;
 };
 
+/** Status de descarte na visão administrativa */
 export type AdminDiscardStatus = StatusDescarte;
 
+/** Registro consolidado para auditoria e relatórios ESG do Administrador */
 export type AdminDiscardRecord = {
   id: string;
   citizenName: string;
@@ -154,8 +174,10 @@ export type AdminDiscardRecord = {
   photoUri?: string;
 };
 
+/** Tipo de notificação no sistema */
 export type NotificationType = 'discard' | 'collection' | 'sync' | 'system';
 
+/** Notificação do ecossistema */
 export type AppNotification = {
   id: string;
   title: string;
@@ -165,13 +187,16 @@ export type AppNotification = {
   type: NotificationType;
 };
 
+/** Resultado da solicitação de código de recuperação */
 export type ResetCodeResult = {
   success: boolean;
   message: string;
   code?: string;
 };
 
+/** Resultado da redefinição de senha */
 export type ResetPasswordResult = {
   success: boolean;
   message: string;
 };
+

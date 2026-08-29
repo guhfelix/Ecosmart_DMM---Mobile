@@ -1,5 +1,11 @@
+/**
+ * Cargas Iniciais e Dados Semente (Seeds) do EcoSmart Mobile.
+ * Contém usuários padrão, catálogo de tipos de resíduos, pontos de coleta e dicas
+ * ambientais reais de Cáceres - Mato Grosso.
+ */
 import { DbUser, DbWasteType, DbCollectionPoint, DbEducationalTip, DbDiscard } from '../schemas/types';
 
+/** Usuários padrão cadastrados no sistema para testes e acesso imediato */
 export const SEED_USERS: DbUser[] = [
   {
     id: 'user-admin-1',

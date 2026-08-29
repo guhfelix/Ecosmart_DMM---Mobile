@@ -12,7 +12,7 @@ Esta pasta contém scripts executáveis com duplo clique (.bat) no Windows para 
 | :--- | :--- | :--- |
 | **`MENU-ECOSMART.bat`** | **Painel Principal Interativo:** Menu completo para controlar todos os apps, testes, servidor e Firebase. | Duplo clique no Windows |
 | **`1-instalar-dependencias.bat`** | Instala as dependências da raiz e de cada um dos 3 aplicativos (`ecosmart-cidadao`, `ecosmart-coletor`, `ecosmart-admin`). | Duplo clique no Windows |
-| **`2-executar-testes.bat`** | Executa a sincronização, checagem TypeScript (`tsc --noEmit`), testes Jest (74 suítes, 382 testes) e diagnóstico de comunicação. | Duplo clique no Windows |
+| **`2-executar-testes.bat`** | Executa a sincronização, checagem TypeScript (`tsc --noEmit`), testes Jest (74 suítes, 383 testes) e diagnóstico de comunicação. | Duplo clique no Windows |
 | **`3-iniciar-cidadao.bat`** | Sincroniza, inicia o servidor backend + Firebase e abre o **EcoSmart Cidadão** na porta `8081`. | Duplo clique no Windows |
 | **`4-iniciar-coletor.bat`** | Sincroniza, inicia o servidor backend + Firebase e abre o **EcoSmart Coletor** na porta `8082`. | Duplo clique no Windows |
 | **`5-iniciar-admin.bat`** | Sincroniza, inicia o servidor backend + Firebase e abre o **EcoSmart Admin** na porta `8083`. | Duplo clique no Windows |

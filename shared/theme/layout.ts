@@ -1,3 +1,8 @@
+/**
+ * Tokens de Espaçamento, Raio e Sombra do EcoSmart Mobile.
+ */
+
+/** Escala padronizada de espaçamentos em pixels */
 export const spacing = {
   xs: 4,
   sm: 8,
@@ -6,6 +11,7 @@ export const spacing = {
   xl: 24,
 };
 
+/** Escala de arredondamento de bordas (Border Radius) */
 export const radius = {
   sm: 8,
   md: 12,
@@ -13,6 +19,7 @@ export const radius = {
   pill: 999,
 };
 
+/** Definições de sombras para cartões e modais */
 export const shadow = {
   card: {
     shadowOffset: { width: 0, height: 2 },
@@ -21,3 +28,4 @@ export const shadow = {
     elevation: 2,
   },
 };
+

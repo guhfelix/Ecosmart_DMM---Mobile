@@ -2,18 +2,35 @@ import { DbUser } from '../schemas/types';
 import { SEED_USERS } from '../seeds/initialData';
 import { generateEntityId } from '../../shared/utils/idUtils';
 
+/**
+ * Repositório de Acesso a Dados de Usuários.
+ * Gerencia operações de consulta, criação, atualização e busca por e-mail/ID
+ * com persistência na coleção de usuários do ecossistema.
+ */
 export class UserRepository {
   private users: DbUser[] = [...SEED_USERS];
 
+  /**
+   * Busca um usuário pelo endereço de e-mail (busca case-insensitive).
+   * @param email E-mail a ser pesquisado
+   */
   async findByEmail(email: string): Promise<DbUser | null> {
     const normalized = email.trim().toLowerCase();
     return this.users.find((u) => u.email.trim().toLowerCase() === normalized) ?? null;
   }
 
+  /**
+   * Busca um usuário pelo ID primário.
+   * @param id ID único do usuário
+   */
   async findById(id: string): Promise<DbUser | null> {
     return this.users.find((u) => u.id === id) ?? null;
   }
 
+  /**
+   * Cadastra um novo usuário gerando ID semântico e timestamp de criação.
+   * @param user Dados cadastrais do usuário
+   */
   async create(user: Omit<DbUser, 'id' | 'criado_em'>): Promise<DbUser> {
     const newUser: DbUser = {
       ...user,
@@ -24,6 +41,11 @@ export class UserRepository {
     return newUser;
   }
 
+  /**
+   * Atualiza campos de um usuário existente.
+   * @param id ID do usuário
+   * @param updates Objeto parcial com os novos valores
+   */
   async update(id: string, updates: Partial<DbUser>): Promise<DbUser | null> {
     const index = this.users.findIndex((u) => u.id === id);
     if (index < 0) return null;
@@ -35,6 +57,10 @@ export class UserRepository {
     return this.users[index];
   }
 
+  /**
+   * Insere ou atualiza um usuário na base.
+   * @param user Usuário completo
+   */
   async upsert(user: DbUser): Promise<DbUser> {
     const index = this.users.findIndex(
       (u) => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase()
@@ -51,6 +77,9 @@ export class UserRepository {
     return user;
   }
 
+  /**
+   * Retorna a lista de todos os usuários registrados.
+   */
   async getAll(): Promise<DbUser[]> {
     return [...this.users];
   }

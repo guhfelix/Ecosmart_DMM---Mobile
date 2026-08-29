@@ -99,7 +99,7 @@ flowchart TD
 ---
 
 ## 🧪 Qualidade & Testes
-
-* **74 suítes de testes** e **382 testes automatizados** com 100% de aprovação.
+ 
+* **74 suítes de testes** e **383 testes automatizados** com 100% de aprovação.
 * **0 erros de tipagem estática** TypeScript (`npm run typecheck:all`).
 * **Diagnóstico de Comunicação:** `npm run test:communication`.

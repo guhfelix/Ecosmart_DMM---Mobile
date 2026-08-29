@@ -1,3 +1,8 @@
+/**
+ * Definição dos Tipos e Modelos de Banco de Dados do EcoSmart Mobile.
+ */
+
+/** Entidade de Usuário no Banco de Dados */
 export interface DbUser {
   id: string;
   nome: string;
@@ -21,6 +26,7 @@ export interface DbUser {
   atualizado_em?: string;
 }
 
+/** Entidade de Descarte de Resíduos no Banco de Dados */
 export interface DbDiscard {
   id: string;
   usuario_id?: string;
@@ -44,6 +50,7 @@ export interface DbDiscard {
   criado_em?: string;
 }
 
+/** Entidade de Tipo de Resíduo Reciclável */
 export interface DbWasteType {
   id: string;
   nome: string;
@@ -51,6 +58,7 @@ export interface DbWasteType {
   criado_em?: string;
 }
 
+/** Entidade de Ponto de Coleta / Ecoponto */
 export interface DbCollectionPoint {
   id: string;
   nome: string;
@@ -67,6 +75,7 @@ export interface DbCollectionPoint {
   criado_em?: string;
 }
 
+/** Entidade de Dica Educativa e Preservação Ambiental */
 export interface DbEducationalTip {
   id: string;
   titulo: string;

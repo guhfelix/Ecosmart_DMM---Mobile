@@ -18,6 +18,9 @@ export function normalizeToCollectorDiscard(raw: any): CollectorDiscard {
 
   return {
     id: raw.id || generateUUID(),
+    userId: raw.userId || raw.citizenId || raw.usuario_id || raw.usuarioId,
+    citizenId: raw.citizenId || raw.userId || raw.usuario_id || raw.usuarioId,
+    citizenEmail: raw.citizenEmail || raw.email,
     citizenName: raw.citizenName || raw.nome_cidadao || 'Maria Cidadã Pantaneira',
     wasteType: raw.wasteType || raw.type || raw.tipo_residuo || 'Plástico e PET',
     quantity: raw.quantity || raw.quantidade || '1 volume',
@@ -53,6 +56,9 @@ export function normalizeToCitizenDiscard(raw: any): DiscardItem {
 
   return {
     id: raw.id || generateUUID(),
+    userId: raw.userId || raw.citizenId || raw.usuario_id || raw.usuarioId,
+    citizenId: raw.citizenId || raw.userId || raw.usuario_id || raw.usuarioId,
+    citizenEmail: raw.citizenEmail || raw.email,
     type: raw.type || raw.wasteType || raw.tipo_residuo || 'Plástico e PET',
     quantity: raw.quantity || raw.quantidade || '1 volume',
     observation: raw.observation || raw.observacao || 'Material separado para coleta.',

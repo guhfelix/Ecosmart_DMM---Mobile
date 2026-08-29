@@ -15,7 +15,12 @@ export const discardRoutes = {
   listCollected: async () => {
     return discardController.listCollected();
   },
+  listByUser: async (userId: string) => {
+    return discardController.listByUser(userId);
+  },
   create: async (body: {
+    usuarioId?: string;
+    userId?: string;
     nomeCidadao: string;
     tipoResiduo: string;
     quantidade: string;

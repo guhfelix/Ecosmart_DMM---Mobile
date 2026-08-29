@@ -134,9 +134,11 @@ export class FirebaseService {
     const id = discard.id || generateEntityId('disc');
     const docData = {
       id,
+      userId: citizen?.id || discard.userId || 'user-cidadao-1',
+      citizenId: citizen?.id || discard.userId || 'user-cidadao-1',
+      usuario_id: citizen?.id || discard.userId || 'user-cidadao-1',
       citizenName: citizen?.nome || 'Maria Cidadã Pantaneira',
       citizenEmail: citizen?.email || 'maria@gmail.com',
-      citizenId: citizen?.id || 'user-cidadao-1',
       wasteType: discard.type,
       type: discard.type,
       quantity: discard.quantity,
@@ -162,14 +164,16 @@ export class FirebaseService {
   /**
    * Obtém os descartes cadastrados por um cidadão específico (Firestore / cache).
    */
-  async getDiscardsByCitizen(citizenEmail: string): Promise<DiscardItem[]> {
+  async getDiscardsByCitizen(citizenEmail: string, userId?: string): Promise<DiscardItem[]> {
     const normalized = (citizenEmail || '').trim().toLowerCase();
     try {
       const db = getFirebaseDb();
-      if (db && normalized) {
+      if (db && (userId || normalized)) {
         const { collection, getDocs, query, where } = require('firebase/firestore');
         const colRef = collection(db, FIRESTORE_COLLECTIONS.DISCARDS);
-        const q = query(colRef, where('citizenEmail', '==', normalized));
+        const q = userId
+          ? query(colRef, where('userId', '==', userId))
+          : query(colRef, where('citizenEmail', '==', normalized));
         const snapshot: any = await withFirestoreTimeout<any>(getDocs(q));
         if (snapshot && !snapshot.empty) {
           const items: DiscardItem[] = [];
@@ -177,6 +181,9 @@ export class FirebaseService {
             const data = d.data();
             items.push({
               id: data.id,
+              userId: data.userId || data.citizenId || data.usuario_id,
+              citizenId: data.citizenId || data.userId || data.usuario_id,
+              citizenEmail: data.citizenEmail,
               type: data.wasteType || data.type,
               quantity: data.quantity,
               observation: data.observation,
@@ -201,9 +208,20 @@ export class FirebaseService {
 
     const all = await this.getDiscards();
     return all
-      .filter((d: any) => (d.citizenEmail || '').trim().toLowerCase() === normalized)
+      .filter((d: any) => {
+        if (userId && (d.userId === userId || d.citizenId === userId || d.usuario_id === userId)) {
+          return true;
+        }
+        if (normalized && (d.citizenEmail || '').trim().toLowerCase() === normalized) {
+          return true;
+        }
+        return false;
+      })
       .map((d: any) => ({
         id: d.id,
+        userId: d.userId || d.citizenId || d.usuario_id,
+        citizenId: d.citizenId || d.userId || d.usuario_id,
+        citizenEmail: d.citizenEmail,
         type: d.wasteType || d.type,
         quantity: d.quantity,
         observation: d.observation,
@@ -225,14 +243,20 @@ export class FirebaseService {
   /**
    * Ouvinte em tempo real para os descartes de um cidadão específico.
    */
-  subscribeToCitizenDiscards(citizenEmail: string, callback: (discards: DiscardItem[]) => void): () => void {
+  subscribeToCitizenDiscards(
+    citizenEmail: string,
+    callback: (discards: DiscardItem[]) => void,
+    userId?: string
+  ): () => void {
     const normalized = (citizenEmail || '').trim().toLowerCase();
     try {
       const db = getFirebaseDb();
-      if (db && normalized) {
+      if (db && (userId || normalized)) {
         const { collection, onSnapshot, query, where } = require('firebase/firestore');
         const colRef = collection(db, FIRESTORE_COLLECTIONS.DISCARDS);
-        const q = query(colRef, where('citizenEmail', '==', normalized));
+        const q = userId
+          ? query(colRef, where('userId', '==', userId))
+          : query(colRef, where('citizenEmail', '==', normalized));
         const unsubscribe = onSnapshot(
           q,
           (snapshot: any) => {
@@ -241,6 +265,9 @@ export class FirebaseService {
               const data = d.data();
               items.push({
                 id: data.id,
+                userId: data.userId || data.citizenId || data.usuario_id,
+                citizenId: data.citizenId || data.userId || data.usuario_id,
+                citizenEmail: data.citizenEmail,
                 type: data.wasteType || data.type,
                 quantity: data.quantity,
                 observation: data.observation,
@@ -261,14 +288,14 @@ export class FirebaseService {
             callback(items);
           },
           () => {
-            this.getDiscardsByCitizen(citizenEmail).then(callback).catch(() => callback([]));
+            this.getDiscardsByCitizen(citizenEmail, userId).then(callback).catch(() => callback([]));
           }
         );
         return unsubscribe;
       }
     } catch (err) {}
 
-    this.getDiscardsByCitizen(citizenEmail).then(callback).catch(() => callback([]));
+    this.getDiscardsByCitizen(citizenEmail, userId).then(callback).catch(() => callback([]));
     return () => {};
   }
 

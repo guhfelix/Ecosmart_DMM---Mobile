@@ -37,6 +37,16 @@ export class DiscardRepository {
   }
 
   /**
+   * Retorna os descartes pertencentes a um usuário específico.
+   * @param userId ID do usuário/cidadão
+   */
+  async getByUserId(userId: string): Promise<DbDiscard[]> {
+    return this.discards.filter(
+      (d) => d.usuario_id === userId || (d as any).userId === userId || (d as any).citizenId === userId
+    );
+  }
+
+  /**
    * Registra um novo descarte com status inicial 'pendente'.
    * @param discard Dados do descarte
    */

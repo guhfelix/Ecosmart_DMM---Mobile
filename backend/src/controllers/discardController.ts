@@ -22,9 +22,19 @@ export class DiscardController {
   }
 
   /**
+   * Lista todos os descartes pertencentes a um usuário específico.
+   * @param userId ID do usuário/cidadão autenticado
+   */
+  async listByUser(userId: string) {
+    return discardRepository.getByUserId(userId);
+  }
+
+  /**
    * Cria uma nova solicitação de descarte de resíduos.
    */
   async create(data: {
+    usuarioId?: string;
+    userId?: string;
     nomeCidadao: string;
     tipoResiduo: string;
     quantidade: string;
@@ -36,6 +46,7 @@ export class DiscardController {
     longitude?: number;
   }) {
     return discardRepository.create({
+      usuario_id: data.usuarioId || data.userId,
       nome_cidadao: data.nomeCidadao,
       tipo_residuo: data.tipoResiduo,
       quantidade: data.quantidade,

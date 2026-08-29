@@ -150,6 +150,6 @@ Scripts com duplo clique (.bat) para Windows com auto-inicialização do servido
 
 ## 🧪 9. Qualidade, Testes Automatizados e Cobertura (Etapa Obrigatória)
 
-* **74 suítes de testes** e **383 testes automatizados** (100% de aprovação).
+* **75 suítes de testes** e **386 testes automatizados** (100% de aprovação).
 * **0 erros de tipagem estática** TypeScript (`npm run typecheck:all`).
 * **Diagnóstico de Comunicação:** `npm run test:communication`.

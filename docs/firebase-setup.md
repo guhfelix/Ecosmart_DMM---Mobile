@@ -1,6 +1,6 @@
 # Guia de Conexão e Configuração do Firebase - EcoSmart Mobile
 
-Este documento explica como conectar o banco de dados **Cloud Firestore**, **Authentication** e **Cloud Storage** do **Firebase** ao ecossistema **EcoSmart Mobile**.
+Este documento explica como conectar o banco de dados **Cloud Firestore**, o **Firebase Authentication** e o **Cloud Storage** do **Firebase** ao ecossistema **EcoSmart Mobile**, bem como as regras de segurança RBAC e a população inicial da base de dados.
 
 ---
 
@@ -8,18 +8,19 @@ Este documento explica como conectar o banco de dados **Cloud Firestore**, **Aut
 
 ```mermaid
 graph TD
-    A[📱 Apps Mobile: Cidadão / Coletor / Admin] -->|Login & Tokens| B[🔐 Firebase Authentication]
-    A -->|Documentos & Listeners em Tempo Real| C[🗄️ Cloud Firestore]
-    A -->|Upload de Fotos de Resíduos| D[🖼️ Cloud Storage]
-    E[⚙️ Backend EcoSmart] -->|Admin SDK| C
+    A[📱 Apps Mobile: Cidadão / Coletor / Admin] -->|Login Google & E-mail| B[🔐 Firebase Authentication]
+    A -->|Documentos & Listeners onSnapshot| C[🗄️ Cloud Firestore]
+    A -->|Upload / URLs de Fotos| D[🖼️ Firebase Cloud Storage]
+    E[⚙️ Backend EcoSmart & Scripts] -->|REST & Sincronização| C
+    F[🌱 Script seed-firestore.js] -->|Carga Inicial| C
 ```
 
 ### Coleções do Cloud Firestore:
 - `usuarios`: Perfis de Cidadãos, Coletores e Administradores com dados cadastrais e provedores de login (E-mail ou Google).
-- `descartes`: Solicitações de descarte com fotos, coordenadas GPS, status e logs.
-- `tipos_residuos`: Catálogo de materiais recicláveis mantido pelo Admin.
-- `pontos_coleta`: Locais de coleta seletiva e ecopontos com geolocalização.
-- `dicas_educativas`: Conteúdos educativos sobre descarte consciente.
+- `descartes`: Solicitações de descarte com fotos, coordenadas GPS de Cáceres - MT, status (`pendente` ou `coletado`) e timestamps.
+- `tipos_residuos`: Catálogo de materiais recicláveis gerenciado pelo Admin.
+- `pontos_coleta`: Locais de coleta seletiva e ecopontos com geolocalização e horários.
+- `dicas_educativas`: Conteúdos educativos sobre descarte consciente e preservação do Pantanal.
 - `notificacoes`: Alertas em tempo real disparados para usuários e coletores.
 
 ---
@@ -57,15 +58,9 @@ graph TD
 
 ---
 
-## 🔑 3. Obter as Chaves e Configurar no Aplicativo
+## 🔑 3. Configuração de Variáveis de Ambiente
 
-### Passo 3.1: Registrar o Aplicativo Web/Expo
-1. Na tela inicial do projeto no Firebase Console, clique no ícone **Web (`</>`)** para registrar um app.
-2. Nomeie o app como `EcoSmart Mobile Web/Expo`.
-3. O Firebase exibirá um bloco de código `const firebaseConfig = { ... }`.
-
-### Passo 3.2: Configurar as Variáveis de Ambiente
-Crie um arquivo `.env` na raiz de cada app frontend (`frontend/ecosmart-cidadao/.env`, `frontend/ecosmart-coletor/.env`, `frontend/ecosmart-admin/.env`) ou edite [`shared/services/firebaseConfig.ts`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre/DESENVOLVIMENTO%20DE%20SISTEMAS%20PARA%20DISPOSITIVOS%20M%C3%93VEIS/Ecosmart_DMM---Mobile/shared/services/firebaseConfig.ts):
+Configure as variáveis de ambiente nos arquivos `.env` na raiz de cada app frontend (`frontend/ecosmart-cidadao/.env`, `frontend/ecosmart-coletor/.env`, `frontend/ecosmart-admin/.env`) ou edite [`shared/services/firebaseConfig.ts`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre/DESENVOLVIMENTO%20DE%20SISTEMAS%20PARA%20DISPOSITIVOS%20M%C3%93VEIS/Ecosmart_DMM---Mobile/shared/services/firebaseConfig.ts):
 
 ```env
 EXPO_PUBLIC_FIREBASE_API_KEY="AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
@@ -78,35 +73,28 @@ EXPO_PUBLIC_FIREBASE_APP_ID="1:123456789012:web:abcdef1234567890"
 
 ---
 
-## 📦 4. Instalação do SDK Oficial do Firebase (Opcional para Modo Live)
+## 🛡️ 4. Regras de Segurança RBAC do Firestore (`firestore.rules`)
 
-Para conectar o SDK nativo do Firebase aos aplicativos Expo:
+As regras definidas em [`database/schemas/firestore.rules`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre/DESENVOLVIMENTO%20DE%20SISTEMAS%20PARA%20DISPOSITIVOS%20M%C3%93VEIS/Ecosmart_DMM---Mobile/database/schemas/firestore.rules) garantem o controle de acesso baseado em papéis:
+
+* **Coleção `usuarios`:** Apenas o próprio usuário autenticado pode ler ou editar seu perfil (`isOwner(userId)`).
+* **Coleção `descartes`:** Leitura, criação e edição permitidas apenas se o documento estiver vinculado ao UID do usuário logado (`resource.data.userId == request.auth.uid`).
+* **Coleções Públicas de Leitura (`tipos_residuos`, `pontos_coleta`, `dicas_educativas`):** Qualquer usuário autenticado pode consultar; apenas administradores (`request.auth.token.perfil == 'admin'`) podem criar, editar ou excluir.
+* **Coleção `notificacoes`:** Leitura e escrita restritas ao destinatário do alerta.
+
+---
+
+## 🌱 5. População Inicial do Banco de Dados (Seed Firestore)
+
+Para popular o Cloud Firestore com os dados iniciais de Cáceres - MT (PEVs, tipos de resíduos e dicas educativas):
 
 ```bash
-# Instalar o SDK oficial do Firebase em cada aplicativo:
-cd frontend/ecosmart-cidadao
-npx expo install firebase
-
-cd ../ecosmart-coletor
-npx expo install firebase
-
-cd ../ecosmart-admin
-npx expo install firebase
+node scripts/seed-firestore.js
 ```
 
 ---
 
-## 🛡️ 5. Regras de Segurança RBAC do Firestore
-
-As regras definidas em [`database/schemas/firestore.rules`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre/DESENVOLVIMENTO%20DE%20SISTEMAS%20PARA%20DISPOSITIVOS%20M%C3%93VEIS/Ecosmart_DMM---Mobile/database/schemas/firestore.rules) garantem o isolamento estrito:
-
-- **Cidadão:** Pode criar descartes e visualizar pontos de coleta e dicas. Edita apenas o seu próprio perfil.
-- **Coletor:** Pode atualizar o status de descartes de `Pendente` para `Coletado` e ler informações geográficas para atendimento.
-- **Administrador:** Acesso de escrita exclusivo sobre `tipos_residuos`, `pontos_coleta` e `dicas_educativas`, além de auditoria geral.
-
----
-
-## 🔄 6. Sincronização Automática com o Monorepo
+## 🔄 6. Sincronização com o Monorepo
 
 Sempre que atualizar a configuração em `shared/services/firebaseConfig.ts`, propague as alterações para todos os 3 aplicativos com:
 

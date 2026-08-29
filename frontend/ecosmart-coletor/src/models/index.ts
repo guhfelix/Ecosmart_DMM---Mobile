@@ -74,6 +74,9 @@ export type CitizenDiscardStatus = 'Pendente' | 'Coletado' | 'Pendente (Offline)
 /** Item de descarte na interface do Cidadão */
 export type DiscardItem = {
   id: string;
+  userId?: string;
+  citizenId?: string;
+  citizenEmail?: string;
   type: string;
   quantity: string;
   observation: string;
@@ -97,6 +100,9 @@ export type DiscardStatus = 'pendente' | 'coletado';
 /** Item de descarte com geolocalização para o Coletor */
 export type CollectorDiscard = {
   id: string;
+  userId?: string;
+  citizenId?: string;
+  citizenEmail?: string;
   citizenName: string;
   wasteType: string;
   quantity: string;

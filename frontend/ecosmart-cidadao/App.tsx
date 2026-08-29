@@ -60,21 +60,14 @@ export default function App() {
   // Hook de detecção de conectividade
   const { isOffline } = useNetworkStatus();
 
-  // --- Efeito 1: Carregar dados salvos no dispositivo e sincronizar com descartes do Cidadão ---
+  // --- Efeito 1: Carregar dados salvos no dispositivo e restaurar sessão do Cidadão ---
   useEffect(() => {
     const loadAppData = async () => {
       try {
-        const [storedDiscards, storedSession, storedUsers, liveDiscards] = await Promise.all([
-          AsyncStorage.getItem(STORAGE_KEYS.CIDADAO.DISCARDS),
+        const [storedSession, storedUsers] = await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.CIDADAO.SESSION),
           AsyncStorage.getItem(STORAGE_KEYS.CIDADAO.USERS),
-          crossAppSync.fetchAllDiscards(),
         ]);
-
-        const liveList = Array.isArray(liveDiscards) ? liveDiscards.map(normalizeToCitizenDiscard) : null;
-        const localList: DiscardItem[] = storedDiscards ? (JSON.parse(storedDiscards) as any[]).map(normalizeToCitizenDiscard) : [];
-        const mergedDiscards = liveList !== null ? liveList : localList;
-        setItems(mergedDiscards);
 
         let parsedUsers: RegisteredUser[] = [];
         if (storedUsers) {
@@ -108,12 +101,32 @@ export default function App() {
 
             setCurrentUser(activeUser);
 
-            firebaseService.getUserByEmail(activeUser.email).then((cloudUser) => {
-              if (cloudUser) {
-                setCurrentUser((prev) => (prev ? { ...prev, ...cloudUser } : cloudUser));
-              }
-            }).catch(() => {});
+            // Carrega exclusivamente os descartes do usuário ativo
+            const [storedUserDiscards, userLiveDiscards] = await Promise.all([
+              AsyncStorage.getItem(`${STORAGE_KEYS.CIDADAO.DISCARDS}_${activeUser.id}`),
+              crossAppSync.fetchDiscardsByUser(activeUser.id, activeUser.email),
+            ]);
+
+            const liveList = Array.isArray(userLiveDiscards) ? userLiveDiscards.map(normalizeToCitizenDiscard) : null;
+            const localList: DiscardItem[] = storedUserDiscards
+              ? (JSON.parse(storedUserDiscards) as any[]).map(normalizeToCitizenDiscard)
+              : [];
+            const mergedDiscards = liveList !== null && liveList.length > 0 ? liveList : localList;
+            setItems(mergedDiscards);
+
+            firebaseService
+              .getUserByEmail(activeUser.email)
+              .then((cloudUser) => {
+                if (cloudUser) {
+                  setCurrentUser((prev) => (prev ? { ...prev, ...cloudUser } : cloudUser));
+                }
+              })
+              .catch(() => {});
+          } else {
+            setItems([]);
           }
+        } else {
+          setItems([]);
         }
       } catch (error) {
         console.log('Erro ao carregar dados locais do cidadão:', error);
@@ -125,12 +138,16 @@ export default function App() {
     loadAppData();
   }, []);
 
-  // --- Efeito 2: Salvar descartes no AsyncStorage ao alterar ---
+  // --- Efeito 2: Salvar descartes no AsyncStorage isolado por usuário ---
   useEffect(() => {
-    if (!isReady) return;
+    if (!isReady || !currentUser) return;
 
     const saveDiscards = async () => {
       try {
+        await AsyncStorage.setItem(
+          `${STORAGE_KEYS.CIDADAO.DISCARDS}_${currentUser.id}`,
+          JSON.stringify(items)
+        );
         await AsyncStorage.setItem(STORAGE_KEYS.CIDADAO.DISCARDS, JSON.stringify(items));
       } catch (error) {
         console.log('Erro ao salvar descartes locais:', error);
@@ -138,7 +155,7 @@ export default function App() {
     };
 
     saveDiscards();
-  }, [items, isReady]);
+  }, [items, isReady, currentUser]);
 
   // --- Efeito: Barramento de Eventos em Tempo Real (0ms) ---
   useEffect(() => {
@@ -163,13 +180,13 @@ export default function App() {
     return unsubscribe;
   }, []);
 
-  // --- Efeito 3: Sincronização Periódica Inter-Aplicativos em Tempo Real (Loop a cada 1.5s) ---
+  // --- Efeito 3: Sincronização Periódica de Descartes Apenas do Cidadão Logado ---
   useEffect(() => {
-    if (!isReady) return;
+    if (!isReady || !currentUser) return;
 
     const syncCrossApp = async () => {
       try {
-        const liveDiscards = await crossAppSync.fetchAllDiscards();
+        const liveDiscards = await crossAppSync.fetchDiscardsByUser(currentUser.id, currentUser.email);
         if (liveDiscards && Array.isArray(liveDiscards)) {
           setItems((prev) => {
             const map = new Map<string, DiscardItem>();
@@ -199,7 +216,7 @@ export default function App() {
 
     const intervalId = setInterval(syncCrossApp, 1500);
     return () => clearInterval(intervalId);
-  }, [isReady]);
+  }, [isReady, currentUser]);
 
   // --- Efeito 4: Salvar lista de usuários cadastrados localmente ---
   useEffect(() => {
@@ -239,7 +256,13 @@ export default function App() {
 
   /** Adiciona um novo descarte à lista em memória e transmite em tempo real para todos os apps e Firebase */
   const addDiscard = async (item: DiscardItem) => {
-    setItems((prev) => [item, ...prev]);
+    const itemWithOwner: DiscardItem = {
+      ...item,
+      userId: currentUser?.id,
+      citizenId: currentUser?.id,
+      citizenEmail: currentUser?.email,
+    };
+    setItems((prev) => [itemWithOwner, ...prev]);
     setFeedback({
       message: item.offline
         ? '✓ Descarte salvo offline. Ele será sincronizado quando a conexão voltar.'
@@ -247,14 +270,16 @@ export default function App() {
       variant: item.offline ? 'warning' : 'success',
     });
 
-    // 1. Persiste diretamente no Firebase Cloud Firestore
-    await firebaseService.saveCitizenDiscard(item, currentUser || undefined).catch((err) => {
+    // 1. Persiste diretamente no Firebase Cloud Firestore com o dono correto
+    await firebaseService.saveCitizenDiscard(itemWithOwner, currentUser || undefined).catch((err) => {
       console.log('Firebase discard save notice:', err);
     });
 
     // 2. Transmite através do canal de sincronização (Sync Server e Event Bus)
     await crossAppSync.postNewDiscard({
-      ...item,
+      ...itemWithOwner,
+      userId: currentUser?.id,
+      citizenId: currentUser?.id,
       citizenName: currentUser?.nome || 'Maria Cidadã Pantaneira',
       citizenEmail: currentUser?.email || 'maria@gmail.com',
       wasteType: item.type,
@@ -344,7 +369,7 @@ export default function App() {
     }
   };
 
-  /** Callback de login bem-sucedido com reconstituição completa do perfil */
+  /** Callback de login bem-sucedido com reconstituição completa do perfil e carregamento de dados do usuário */
   const handleLoginSuccess = async (user: Usuario) => {
     const localUser = registeredUsers.find(
       (u) => u.email.trim().toLowerCase() === user.email.trim().toLowerCase()
@@ -366,6 +391,23 @@ export default function App() {
 
     setCurrentUser(fullUser);
     setScreen('home');
+
+    // Carrega apenas os descartes específicos desta conta
+    try {
+      const [storedUserDiscards, liveDiscards] = await Promise.all([
+        AsyncStorage.getItem(`${STORAGE_KEYS.CIDADAO.DISCARDS}_${fullUser.id}`),
+        crossAppSync.fetchDiscardsByUser(fullUser.id, fullUser.email),
+      ]);
+      const liveList = Array.isArray(liveDiscards) ? liveDiscards.map(normalizeToCitizenDiscard) : null;
+      const localList: DiscardItem[] = storedUserDiscards
+        ? (JSON.parse(storedUserDiscards) as any[]).map(normalizeToCitizenDiscard)
+        : [];
+      const userItems = liveList !== null && liveList.length > 0 ? liveList : localList;
+      setItems(userItems);
+    } catch (e) {
+      setItems([]);
+    }
+
     try {
       await AsyncStorage.setItem(
         STORAGE_KEYS.CIDADAO.SESSION,
@@ -376,12 +418,18 @@ export default function App() {
     }
   };
 
-  /** Callback de cadastro bem-sucedido */
+  /** Callback de cadastro bem-sucedido: inicializa conta com lista zerada de descartes */
   const handleRegisterSuccess = async (user: Usuario, updatedUsers: RegisteredUser[]) => {
     setRegisteredUsers(updatedUsers);
     setCurrentUser(user);
+    // Novo usuário inicia com lista de descartes vazia (zero vazamento de dados de outras contas)
+    setItems([]);
+    setSelectedItemId(null);
     setScreen('home');
+
     try {
+      await AsyncStorage.setItem(`${STORAGE_KEYS.CIDADAO.DISCARDS}_${user.id}`, JSON.stringify([]));
+      await AsyncStorage.setItem(STORAGE_KEYS.CIDADAO.DISCARDS, JSON.stringify([]));
       await AsyncStorage.setItem(
         STORAGE_KEYS.CIDADAO.SESSION,
         JSON.stringify({ user, loginAt: new Date().toISOString() })
@@ -391,12 +439,17 @@ export default function App() {
     }
   };
 
-  /** Encerra a sessão */
+  /** Encerra a sessão e limpa integralmente os estados em memória e cache */
   const handleLogout = async () => {
     setCurrentUser(null);
+    setItems([]); // Limpa os descartes em memória
+    setSelectedItemId(null);
+    setNotifications(INITIAL_NOTIFICATIONS);
+    firebaseService.clearLocalMemoryCache(); // Limpa cache do Firebase Service
     setScreen('home');
     try {
       await AsyncStorage.removeItem(STORAGE_KEYS.CIDADAO.SESSION);
+      await AsyncStorage.removeItem(STORAGE_KEYS.CIDADAO.DISCARDS);
     } catch (e) {
       console.log('Erro ao remover sessão:', e);
     }

@@ -115,6 +115,51 @@ export class CrossAppSyncService {
   }
 
   /**
+   * Busca a lista mais atualizada de descartes pertencentes a um usuário específico.
+   */
+  async fetchDiscardsByUser(userId?: string, email?: string): Promise<CollectorDiscard[]> {
+    if (!userId && !email) return [];
+
+    const normalizedEmail = (email || '').trim().toLowerCase();
+
+    // 1. Tenta obter do Servidor de Sincronização Local com filtro
+    try {
+      const params = new URLSearchParams();
+      if (userId) params.append('userId', userId);
+      if (normalizedEmail) params.append('email', normalizedEmail);
+      const res = await fetchWithTimeout(`${SYNC_SERVER_URL}/api/discards?${params.toString()}`, { method: 'GET' });
+      if (res.ok) {
+        const serverDiscards = await res.json();
+        if (Array.isArray(serverDiscards)) {
+          return serverDiscards.map(normalizeToCollectorDiscard);
+        }
+      }
+    } catch (err) {}
+
+    // 2. Tenta obter do Cloud Firestore filtrado por usuário
+    try {
+      const cloudDiscards = await firebaseService.getDiscardsByCitizen(normalizedEmail, userId);
+      if (Array.isArray(cloudDiscards) && cloudDiscards.length > 0) {
+        return cloudDiscards.map(normalizeToCollectorDiscard);
+      }
+    } catch (err) {}
+
+    // 3. Fallback no armazenamento local específico do usuário
+    try {
+      const userKey = userId ? `${STORAGE_KEYS.CIDADAO.DISCARDS}_${userId}` : STORAGE_KEYS.CIDADAO.DISCARDS;
+      const stored = await AsyncStorage.getItem(userKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          return parsed.map(normalizeToCollectorDiscard);
+        }
+      }
+    } catch (err) {}
+
+    return [];
+  }
+
+  /**
    * Busca a lista mais atualizada de descartes (combinando Servidor Sync, Cloud Firestore e Local Storage).
    */
   async fetchAllDiscards(): Promise<CollectorDiscard[]> {

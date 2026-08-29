@@ -121,8 +121,23 @@ const server = http.createServer((req, res) => {
   // --- Rotas de Descartes (/api/discards) ---
   if (pathname === '/api/discards') {
     if (req.method === 'GET') {
+      const queryUserId = url.searchParams.get('userId') || url.searchParams.get('usuarioId');
+      const queryEmail = url.searchParams.get('email') || url.searchParams.get('citizenEmail');
+
+      let filteredDiscards = dbState.discards;
+      if (queryUserId) {
+        filteredDiscards = filteredDiscards.filter(
+          (d) => d.userId === queryUserId || d.citizenId === queryUserId || d.usuario_id === queryUserId
+        );
+      } else if (queryEmail) {
+        const lowerEmail = queryEmail.trim().toLowerCase();
+        filteredDiscards = filteredDiscards.filter(
+          (d) => (d.citizenEmail || '').trim().toLowerCase() === lowerEmail
+        );
+      }
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(dbState.discards));
+      res.end(JSON.stringify(filteredDiscards));
       return;
     }
 
@@ -137,6 +152,9 @@ const server = http.createServer((req, res) => {
 
           const normalized = {
             id,
+            userId: item.userId || item.citizenId || item.usuario_id,
+            citizenId: item.citizenId || item.userId || item.usuario_id,
+            citizenEmail: item.citizenEmail || item.email,
             citizenName: item.citizenName || item.nome_cidadao || 'Maria Cidadã Pantaneira',
             wasteType: item.wasteType || item.type || 'Plástico e PET',
             type: item.type || item.wasteType || 'Plástico e PET',

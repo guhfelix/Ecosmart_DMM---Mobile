@@ -7,7 +7,7 @@
 ![Expo](https://img.shields.io/badge/Expo-SDK%2054-black)
 ![Node.js](https://img.shields.io/badge/Node.js-Backend%20REST-green)
 ![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue)
-![Tests](https://img.shields.io/badge/Tests-74%20suites%20%7C%20383%20passed-success)
+![Tests](https://img.shields.io/badge/Tests-75%20suites%20%7C%20386%20passed-success)
 ![Firebase](https://img.shields.io/badge/Firebase-Firestore%20%2B%20Auth-orange)
 ![License](https://img.shields.io/badge/license-academic-lightgrey)
 
@@ -88,7 +88,7 @@ A pasta [`executaveis/`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre
 
 ## 🧪 Qualidade e Testes Automatizados
 
-O ecossistema conta com **74 suítes de testes** e **383 testes automatizados** (100% de sucesso):
+O ecossistema conta com **75 suítes de testes** e **386 testes automatizados** (100% de sucesso):
 
 ```bash
 # Executa todos os testes dos 3 aplicativos

@@ -1,5 +1,5 @@
-import { adminRepository } from '../../database/repositories/adminRepository';
-import { discardRepository } from '../../database/repositories/discardRepository';
+import { adminRepository } from '../../../database/repositories/adminRepository';
+import { discardRepository } from '../../../database/repositories/discardRepository';
 
 /**
  * Controlador de Operações Administrativas e Governança ESG.

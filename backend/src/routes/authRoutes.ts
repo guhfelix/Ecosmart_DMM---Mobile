@@ -1,4 +1,5 @@
 import { authController } from '../controllers/authController';
+import { PerfilUsuario } from '../../../shared/models';
 
 /**
  * Definição de Rotas de Autenticação e Gestão de Usuários.
@@ -9,16 +10,41 @@ import { authController } from '../controllers/authController';
  * - POST /api/auth/reset-password
  */
 export const authRoutes = {
-  login: async (reqBody: { email: string; pass: string; requiredRole?: any }) => {
-    return authController.login(reqBody.email, reqBody.pass, reqBody.requiredRole);
+  login: async (reqBody: { email: string; pass: string; requiredRole: PerfilUsuario }) => {
+    return authController.login({
+      body: {
+        email: reqBody.email,
+        password: reqBody.pass,
+        expectedRole: reqBody.requiredRole,
+      },
+    });
   },
-  register: async (reqBody: { name: string; email: string; pass: string; role: any; accessCode?: string }) => {
-    return authController.register(reqBody.name, reqBody.email, reqBody.pass, reqBody.role, reqBody.accessCode);
+  register: async (reqBody: { name: string; email: string; pass: string; role: PerfilUsuario; accessCode?: string }) => {
+    return authController.register({
+      body: {
+        name: reqBody.name,
+        email: reqBody.email,
+        password: reqBody.pass,
+        role: reqBody.role,
+        accessCode: reqBody.accessCode,
+      },
+    });
   },
-  requestReset: async (reqBody: { email: string; role: any }) => {
-    return authController.requestReset(reqBody.email, reqBody.role);
+  requestReset: async (reqBody: { email: string; role: PerfilUsuario }) => {
+    return authController.requestReset({
+      body: {
+        email: reqBody.email,
+        role: reqBody.role,
+      },
+    });
   },
   resetPassword: async (reqBody: { email: string; code: string; newPass: string }) => {
-    return authController.resetPassword(reqBody.email, reqBody.code, reqBody.newPass);
+    return authController.resetPassword({
+      body: {
+        email: reqBody.email,
+        code: reqBody.code,
+        newPassword: reqBody.newPass,
+      },
+    });
   },
 };

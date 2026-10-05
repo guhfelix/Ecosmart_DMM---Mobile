@@ -6,9 +6,13 @@
   "main": "src/server.ts",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/backend/src/server.js"
   },
   "dependencies": {
     "@dataconnect/generated": "file:src/dataconnect-generated"
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.130",
+    "typescript": "~5.9.2"
   }
 }

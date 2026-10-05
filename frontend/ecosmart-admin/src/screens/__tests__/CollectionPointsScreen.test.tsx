@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, act } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import { CollectionPointsScreen } from '../CollectionPointsScreen';
 import { CollectionPointItem } from '../../models';
@@ -7,6 +7,17 @@ import { CollectionPointItem } from '../../models';
 jest.spyOn(Alert, 'alert');
 
 describe('CollectionPointsScreen Admin', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    jest.useRealTimers();
+  });
+
   const mockPoints: CollectionPointItem[] = [
     {
       id: 'point-1',

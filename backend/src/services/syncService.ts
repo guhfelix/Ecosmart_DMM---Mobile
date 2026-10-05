@@ -1,4 +1,4 @@
-import { discardRepository } from '../../database/repositories/discardRepository';
+import { discardRepository } from '../../../database/repositories/discardRepository';
 
 /**
  * Serviço de Sincronização Offline.

@@ -5,11 +5,11 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "splash": {
-      "backgroundColor": "#ffffff"
-    },
     "assetBundlePatterns": [
       "**/*"
+    ],
+    "plugins": [
+      "expo-status-bar"
     ]
   }
 }

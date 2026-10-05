@@ -1,9 +1,20 @@
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, act } from '@testing-library/react-native';
 import { HistoryScreen } from '../HistoryScreen';
 import { DiscardItem } from '../../models';
 
 describe('HistoryScreen Cidadão', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    jest.useRealTimers();
+  });
+
   const mockItems: DiscardItem[] = [
     {
       id: '1',

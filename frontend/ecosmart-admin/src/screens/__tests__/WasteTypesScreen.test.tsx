@@ -1,9 +1,20 @@
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, act } from '@testing-library/react-native';
 import { WasteTypesScreen } from '../WasteTypesScreen';
 import { initialWasteTypes } from '../../data/mockData';
 
 describe('WasteTypesScreen Admin', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    jest.useRealTimers();
+  });
+
   it('deve renderizar os tipos cadastrados', () => {
     const onSave = jest.fn();
     const onDelete = jest.fn();

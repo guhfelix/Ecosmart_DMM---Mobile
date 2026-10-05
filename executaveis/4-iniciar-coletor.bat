@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 > nul
 title EcoSmart Coletor - Expo Dev Server (Porta 8082)
-color 03
+color 06
 
 echo ================================================================
 echo        ECOSMART COLETOR - INICIANDO APLICATIVO
@@ -9,10 +9,14 @@ echo ================================================================
 echo.
 echo  Porta: 8082
 echo  Perfil: Coletor / Cooperativa / Empresa
+echo  Tema: Laranja - acao e coleta em campo
 echo  Modo: Expo Development Server
 echo.
 
 cd /d "%~dp0\.."
+
+set EXPO_NO_DEPENDENCY_VALIDATION=1
+set EXPO_NO_TELEMETRY=1
 
 echo [1/3] Sincronizando modulos compartilhados (shared)...
 call npm run sync:shared

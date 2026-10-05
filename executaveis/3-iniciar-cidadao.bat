@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 > nul
 title EcoSmart Cidadao - Expo Dev Server (Porta 8081)
-color 02
+color 0A
 
 echo ================================================================
 echo        ECOSMART CIDADAO - INICIANDO APLICATIVO
@@ -9,10 +9,14 @@ echo ================================================================
 echo.
 echo  Porta: 8081
 echo  Perfil: Cidadao
+echo  Tema: Verde - sustentabilidade
 echo  Modo: Expo Development Server
 echo.
 
 cd /d "%~dp0\.."
+
+set EXPO_NO_DEPENDENCY_VALIDATION=1
+set EXPO_NO_TELEMETRY=1
 
 echo [1/3] Sincronizando modulos compartilhados (shared)...
 call npm run sync:shared

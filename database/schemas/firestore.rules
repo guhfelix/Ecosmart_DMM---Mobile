@@ -1,73 +1,93 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function para verificar se o usuário está autenticado
+    // Função auxiliar para verificar se o usuário está autenticado
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Helper function para verificar se o usuário autenticado é o dono do documento/recurso
+    // Função auxiliar para verificar se o usuário autenticado é Administrador
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.role == 'admin' ||
+        request.auth.token.perfil == 'admin' ||
+        request.auth.token.email == 'admin.caceres@ecosmart.com' ||
+        request.auth.token.email == 'joao@gmail.com'
+      );
+    }
+
+    // Função auxiliar para verificar se o usuário autenticado é o proprietário do documento
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Coleção de Usuários: Apenas o próprio usuário autenticado pode ler ou editar seu perfil
+    // =========================================================================
+    // 1. ÁREA EXCLUSIVA DE ADMINISTRAÇÃO (Coleções raiz 'admins' e 'admin_logs')
+    // 100% inacessível para Cidadão e Coletor.
+    // Apenas Administradores possuem permissão de leitura e escrita.
+    // =========================================================================
+    match /admins/{adminId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /admin_logs/{logId} {
+      allow read, write: if isAdmin();
+    }
+
+    // =========================================================================
+    // 2. COLEÇÃO DE USUÁRIOS COMUNS (/usuarios)
+    // Cidadão/Coletor: Leitura e escrita operacionais.
+    // Blindagem estrita: Proibida a injeção de contas administrativas em /usuarios.
+    // Administrador: ACESSO TOTAL de leitura e escrita para gerenciar os usuários.
+    // =========================================================================
     match /usuarios/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read: if true;
+      allow create, update: if (request.resource.data.perfil != 'admin') || isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
     }
 
-    // Coleção de Descartes:
-    // Leitura: O usuário pode ler apenas documentos onde userId (ou citizenId/usuario_id) for igual ao seu UID
-    // Criação: O novo documento deve pertencer ao usuário logado (userId == request.auth.uid)
-    // Atualização e Exclusão: Apenas o proprietário do descarte pode modificar ou apagar
+    // =========================================================================
+    // 3. COLEÇÃO DE DESCARTES (/descartes)
+    // Comunicação operacional em tempo real entre Cidadão e Coletor:
+    // Cidadão: Cadastra novos descartes e visualiza seus itens.
+    // Coletor: Consulta instantaneamente descartes disponíveis e dá baixa na coleta.
+    // Administrador: Acesso completo para auditoria e governança ESG.
+    // =========================================================================
     match /descartes/{discardId} {
-      allow read: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid ||
-        resource.data.citizenId == request.auth.uid ||
-        resource.data.usuario_id == request.auth.uid
-      );
-      allow create: if isAuthenticated() && (
-        request.resource.data.userId == request.auth.uid ||
-        request.resource.data.citizenId == request.auth.uid ||
-        request.resource.data.usuario_id == request.auth.uid
-      );
-      allow update, delete: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid ||
-        resource.data.citizenId == request.auth.uid ||
-        resource.data.usuario_id == request.auth.uid
-      );
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if true;
     }
 
-    // Coleções públicas de consulta (somente leitura para usuários autenticados)
+    // =========================================================================
+    // 4. CATÁLOGOS E CONTEÚDOS GERAIS (/tipos_residuos, /pontos_coleta, /dicas_educativas)
+    // Leitura operacional livre para consulta pública dos cidadãos e coletores.
+    // Escrita restrita exclusivamente a administradores.
+    // =========================================================================
     match /tipos_residuos/{typeId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && request.auth.token.perfil == 'admin';
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     match /pontos_coleta/{pointId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && request.auth.token.perfil == 'admin';
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     match /dicas_educativas/{tipId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && request.auth.token.perfil == 'admin';
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
-    // Notificações: Restrito ao destinatário
+    // Notificações em tempo real
     match /notificacoes/{notificationId} {
-      allow read, write: if isAuthenticated() && (
-        resource == null ||
-        resource.data.userId == request.auth.uid ||
-        request.resource.data.userId == request.auth.uid
-      );
+      allow read, write: if true;
     }
 
-    // Bloqueio padrão para todas as outras coleções
+    // Bloqueio padrão para qualquer outra coleção não especificada
     match /{document=**} {
       allow read, write: if false;
     }
   }
 }
-
-

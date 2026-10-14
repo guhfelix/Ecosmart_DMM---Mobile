@@ -114,10 +114,12 @@ flowchart TD
 * Auto-iniciado automaticamente em segundo plano ao executar qualquer aplicativo pelo script `ensure-server.js`.
 * Persistência em arquivo JSON local (`database/data/ecosmart-live-db.json`) com garantia de integridade durante o desenvolvimento.
 
-### 3. Banco de Dados em Tempo Real (Firebase Cloud Firestore)
+### 3. Banco de Dados em Tempo Real (Firebase Cloud Firestore na Instância (default))
+* **Isolamento de Dados do Administrador:** Coleções raiz `/admins/{adminId}` e `/admin_logs/{logId}` dedicadas exclusivamente ao perfil gestor, com acesso restrito a administradores via `firestore.rules`.
+* **Coleção Operacional de Usuários:** `/usuarios/{userId}` exclusiva para Cidadãos e Coletores (administradores nunca residem em `usuarios`).
 * Listeners nativos **`onSnapshot`** em `firebaseService.ts` para sincronização instantânea sem necessidade de recarregamento de tela.
 * Gravação normalizada na coleção `descartes` com a função `saveCitizenDiscard()`.
-* Modelo resiliente: caso o dispositivo fique offline ou sem sinal, opera com cache local em memória e sincroniza reativamente ao reconectar.
+* Modelo resiliente: opera com cache local em memória e contingência reativa ao reconectar.
 
 ### 4. Persistência Local Isolada por Aplicativo e Usuário (`AsyncStorage`)
 * Cada aplicativo mantém seus dados locais sob namespace próprio (`@ecosmart_cidadao_*`, `@ecosmart_coletor_*`, `@ecosmart_admin_*`).
@@ -127,6 +129,6 @@ flowchart TD
 
 ## 🧪 Qualidade & Testes
 
-* **75 suítes de testes** e **386 testes automatizados** cobrindo telas, componentes, hooks, utilitários e serviços.
+* **77 suítes de testes** e **425 testes automatizados** cobrindo telas, componentes, hooks, utilitários, serviços e isolamento estrito de dados (100% de aprovação).
 * **0 erros de tipagem estática** TypeScript (`npm run typecheck:all`).
 * **Diagnóstico de Comunicação:** Script automatizado de teste de rotas REST, Firebase e Storage (`npm run test:communication`).

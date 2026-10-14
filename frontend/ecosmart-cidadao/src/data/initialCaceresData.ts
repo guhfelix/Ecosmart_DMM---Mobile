@@ -160,21 +160,6 @@ export const CACERES_DISCARDS_ADMIN: AdminDiscardRecord[] = [];
 
 export const CACERES_INITIAL_USERS: Usuario[] = [
   {
-    id: 'user-admin-1',
-    nome: 'João Gestor SEMATUR',
-    email: 'joao@gmail.com',
-    perfil: 'admin',
-    telefone: '(65) 3223-5500',
-    cep: '78200-000',
-    endereco: 'Rua Cel. José Dulce',
-    numero: '500',
-    bairro: 'Centro',
-    cidade: 'Cáceres - MT',
-    cargo: 'Secretário Municipal de Meio Ambiente',
-    departamento: 'SEMATUR - Cáceres MT',
-    bio: 'Gestão e monitoramento ambiental do município de Cáceres - MT.',
-  },
-  {
     id: 'user-cidadao-1',
     nome: 'Maria Cidadã Pantaneira',
     email: 'maria@gmail.com',
@@ -201,5 +186,24 @@ export const CACERES_INITIAL_USERS: Usuario[] = [
     veiculo: 'Caminhonete de Coleta Seletiva',
     capacidadeCarga: '1.200 kg',
     bio: 'Coleta seletiva diária em Cáceres e suporte a cooperativas locais.',
+  },
+];
+
+/** Administradores padrão para o banco dedicado de gestão (ecosmart-admin-db) */
+export const CACERES_INITIAL_ADMINS: Usuario[] = [
+  {
+    id: 'user-admin-1',
+    nome: 'João Gestor SEMATUR',
+    email: 'joao@gmail.com',
+    perfil: 'admin',
+    telefone: '(65) 3223-5500',
+    cep: '78200-000',
+    endereco: 'Rua Cel. José Dulce',
+    numero: '500',
+    bairro: 'Centro',
+    cidade: 'Cáceres - MT',
+    cargo: 'Secretário Municipal de Meio Ambiente',
+    departamento: 'SEMATUR - Cáceres MT',
+    bio: 'Gestão e monitoramento ambiental do município de Cáceres - MT.',
   },
 ];

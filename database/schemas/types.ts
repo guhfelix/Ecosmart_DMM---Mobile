@@ -2,13 +2,13 @@
  * Definição dos Tipos e Modelos de Banco de Dados do EcoSmart Mobile.
  */
 
-/** Entidade de Usuário no Banco de Dados */
+/** Entidade de Usuário Comum no Banco de Dados Principal ((default)) */
 export interface DbUser {
   id: string;
   nome: string;
   email: string;
   senha_hash: string;
-  perfil: 'cidadao' | 'coletor' | 'admin';
+  perfil: 'cidadao' | 'coletor';
   telefone?: string;
   cep?: string;
   endereco?: string;
@@ -17,6 +17,26 @@ export interface DbUser {
   cidade?: string;
   veiculo?: string;
   capacidade_carga?: string;
+  bio?: string;
+  avatar_url?: string;
+  codigo_recuperacao?: string;
+  criado_em: string;
+  atualizado_em?: string;
+}
+
+/** Entidade de Administrador no Banco de Dados Dedicado e Isolado (ecosmart-admin-db) */
+export interface DbAdmin {
+  id: string;
+  nome: string;
+  email: string;
+  senha_hash: string;
+  perfil: 'admin';
+  telefone?: string;
+  cep?: string;
+  endereco?: string;
+  numero?: string;
+  bairro?: string;
+  cidade?: string;
   cargo?: string;
   departamento?: string;
   bio?: string;
@@ -24,6 +44,17 @@ export interface DbUser {
   codigo_recuperacao?: string;
   criado_em: string;
   atualizado_em?: string;
+}
+
+/** Entidade de Log de Auditoria no Banco Administrativo */
+export interface DbAdminLog {
+  id: string;
+  admin_id: string;
+  admin_email: string;
+  acao: string;
+  detalhes?: string;
+  ip?: string;
+  criado_em: string;
 }
 
 /** Entidade de Descarte de Resíduos no Banco de Dados */

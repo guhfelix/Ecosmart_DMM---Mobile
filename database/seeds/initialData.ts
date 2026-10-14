@@ -3,27 +3,10 @@
  * Contém usuários padrão, catálogo de tipos de resíduos, pontos de coleta e dicas
  * ambientais reais de Cáceres - Mato Grosso.
  */
-import { DbUser, DbWasteType, DbCollectionPoint, DbEducationalTip, DbDiscard } from '../schemas/types';
+import { DbUser, DbAdmin, DbWasteType, DbCollectionPoint, DbEducationalTip, DbDiscard } from '../schemas/types';
 
-/** Usuários padrão cadastrados no sistema para testes e acesso imediato */
+/** Usuários padrão comuns (Cidadão e Coletor) no banco de dados principal ((default)) */
 export const SEED_USERS: DbUser[] = [
-  {
-    id: 'user-admin-1',
-    nome: 'João Gestor SEMATUR',
-    email: 'joao@gmail.com',
-    senha_hash: '1234',
-    perfil: 'admin',
-    telefone: '(65) 3223-5500',
-    cep: '78200-000',
-    endereco: 'Rua Cel. José Dulce',
-    numero: '500',
-    bairro: 'Centro',
-    cidade: 'Cáceres - MT',
-    cargo: 'Secretário Municipal de Meio Ambiente',
-    departamento: 'SEMATUR - Cáceres MT',
-    bio: 'Gestão e monitoramento ambiental do município de Cáceres - MT.',
-    criado_em: new Date().toISOString(),
-  },
   {
     id: 'user-cidadao-1',
     nome: 'Maria Cidadã Pantaneira',
@@ -54,6 +37,27 @@ export const SEED_USERS: DbUser[] = [
     veiculo: 'Caminhonete de Coleta Seletiva',
     capacidade_carga: '1.200 kg',
     bio: 'Coleta seletiva diária em Cáceres e suporte a cooperativas locais.',
+    criado_em: new Date().toISOString(),
+  },
+];
+
+/** Usuários administradores no banco de dados isolado dedicado (ecosmart-admin-db) */
+export const SEED_ADMINS: DbAdmin[] = [
+  {
+    id: 'user-admin-1',
+    nome: 'João Gestor SEMATUR',
+    email: 'joao@gmail.com',
+    senha_hash: '1234',
+    perfil: 'admin',
+    telefone: '(65) 3223-5500',
+    cep: '78200-000',
+    endereco: 'Rua Cel. José Dulce',
+    numero: '500',
+    bairro: 'Centro',
+    cidade: 'Cáceres - MT',
+    cargo: 'Secretário Municipal de Meio Ambiente',
+    departamento: 'SEMATUR - Cáceres MT',
+    bio: 'Gestão e monitoramento ambiental do município de Cáceres - MT.',
     criado_em: new Date().toISOString(),
   },
 ];

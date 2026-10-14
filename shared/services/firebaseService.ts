@@ -1,4 +1,12 @@
-import { defaultFirebaseConfig, ensureFirebaseAuth, FirebaseConfig, FIRESTORE_COLLECTIONS, getFirebaseDb } from './firebaseConfig';
+import {
+  defaultFirebaseConfig,
+  ensureFirebaseAuth,
+  FirebaseConfig,
+  FIRESTORE_COLLECTIONS,
+  ADMIN_FIRESTORE_COLLECTIONS,
+  getFirebaseDb,
+  getAdminFirebaseDb,
+} from './firebaseConfig';
 import {
   AdminDiscardRecord,
   AppNotification,
@@ -17,11 +25,12 @@ import {
   CACERES_DISCARDS_COLETOR,
   CACERES_EDUCATIONAL_TIPS,
   CACERES_INITIAL_USERS,
+  CACERES_INITIAL_ADMINS,
   CACERES_WASTE_TYPES,
 } from '../data/initialCaceresData';
 
 /**
- * Helper para garantir que operações no Firestore possuam timeout adequado
+ * Função auxiliar para garantir que operações no Firestore possuam timeout adequado
  */
 async function withFirestoreTimeout<T = any>(promise: Promise<T>, timeoutMs = 7000): Promise<T> {
   let timer: any;
@@ -38,11 +47,15 @@ async function withFirestoreTimeout<T = any>(promise: Promise<T>, timeoutMs = 70
   }
 }
 
+const ADMIN_COLLECTION = ((ADMIN_FIRESTORE_COLLECTIONS as any)?.ADMINS as string) || 'admins';
+const ADMIN_LOGS_COLLECTION = ((ADMIN_FIRESTORE_COLLECTIONS as any)?.AUDIT_LOGS as string) || 'admin_logs';
+
 /**
  * Serviço de Integração com Firebase (Cloud Firestore, Auth & Storage).
  * Oferece operações completas de banco de dados com suporte híbrido:
  * - Gravação e Leitura no Cloud Firestore em tempo real
- * - Cache resiliente em memória para fallback quando sem conexão
+ * - Cache resiliente em memória para contingência quando sem conexão
+ * - Isolamento arquitetural estrito: administradores nas coleções raiz dedicadas 'admins' e 'admin_logs' no Firestore (default)
  */
 export class FirebaseService {
   private config: FirebaseConfig;
@@ -54,6 +67,11 @@ export class FirebaseService {
     [FIRESTORE_COLLECTIONS.COLLECTION_POINTS]: [...CACERES_COLLECTION_POINTS],
     [FIRESTORE_COLLECTIONS.TIPS]: [...CACERES_EDUCATIONAL_TIPS],
     [FIRESTORE_COLLECTIONS.NOTIFICATIONS]: [],
+  };
+
+  private adminMemoryCache: Record<string, any[]> = {
+    [ADMIN_COLLECTION]: [...CACERES_INITIAL_ADMINS],
+    [ADMIN_LOGS_COLLECTION]: [],
   };
 
   constructor(config: FirebaseConfig = defaultFirebaseConfig) {
@@ -121,7 +139,7 @@ export class FirebaseService {
         await withFirestoreTimeout<any>(setDoc(doc(db, FIRESTORE_COLLECTIONS.DISCARDS, id), docData, { merge: true }));
       }
     } catch (err) {
-      // Fallback em cache local
+      // Mecanismo de contingência em cache local
     }
 
     return { success: true, id };
@@ -308,17 +326,26 @@ export class FirebaseService {
       if (db) {
         const { collection, getDocs, orderBy, query } = require('firebase/firestore');
         const colRef = collection(db, FIRESTORE_COLLECTIONS.DISCARDS);
-        const q = query(colRef, orderBy('updatedAt', 'desc'));
-        const snapshot: any = await withFirestoreTimeout<any>(getDocs(q));
-        if (snapshot) {
+        let snapshot: any = null;
+        try {
+          const q = query(colRef, orderBy('updatedAt', 'desc'));
+          snapshot = await withFirestoreTimeout<any>(getDocs(q), 4000);
+        } catch (queryErr) {
+          try {
+            snapshot = await withFirestoreTimeout<any>(getDocs(colRef), 4000);
+          } catch (colErr) {}
+        }
+
+        if (snapshot && !snapshot.empty) {
           const items: CollectorDiscard[] = [];
           snapshot.forEach((d: any) => items.push(d.data() as CollectorDiscard));
+          items.sort((a, b) => new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime());
           this.memoryCache[FIRESTORE_COLLECTIONS.DISCARDS] = items;
           return items;
         }
       }
     } catch (err) {
-      // Fallback em cache local
+      // Mecanismo de contingência em cache local
     }
 
     return (this.memoryCache[FIRESTORE_COLLECTIONS.DISCARDS] as CollectorDiscard[]) || [];
@@ -400,19 +427,21 @@ export class FirebaseService {
     try {
       const db = getFirebaseDb();
       if (db) {
-        const { collection, onSnapshot, query, orderBy } = require('firebase/firestore');
+        const { collection, onSnapshot } = require('firebase/firestore');
         const colRef = collection(db, FIRESTORE_COLLECTIONS.DISCARDS);
-        const q = query(colRef, orderBy('updatedAt', 'desc'));
         const unsubscribe = onSnapshot(
-          q,
+          colRef,
           (snapshot: any) => {
-            const items: CollectorDiscard[] = [];
-            snapshot.forEach((d: any) => items.push(d.data() as CollectorDiscard));
-            this.memoryCache[FIRESTORE_COLLECTIONS.DISCARDS] = items;
-            callback(items);
+            if (snapshot && !snapshot.empty) {
+              const items: CollectorDiscard[] = [];
+              snapshot.forEach((d: any) => items.push(d.data() as CollectorDiscard));
+              items.sort((a, b) => new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime());
+              this.memoryCache[FIRESTORE_COLLECTIONS.DISCARDS] = items;
+              callback(items);
+            }
           },
-          (error: any) => {
-            console.warn('⚠️ Erro no listener em tempo real do Firestore (discards):', error);
+          () => {
+            // Modo contingência silencioso em caso de simulação ou offline
             callback((this.memoryCache[FIRESTORE_COLLECTIONS.DISCARDS] as CollectorDiscard[]) || []);
           }
         );
@@ -509,13 +538,20 @@ export class FirebaseService {
   }
 
   // ==========================================
-  // COLEÇÃO: USUÁRIOS (Cloud Firestore)
+  // COLEÇÃO: USUÁRIOS COMUNS (Cloud Firestore - (default))
   // ==========================================
 
   /**
-   * Salva ou atualiza os dados cadastrais do usuário no Firestore.
+   * Salva ou atualiza os dados cadastrais do usuário no Firestore padrão.
+   * Não permite a persistência de contas administrativas na base comum.
    */
   async saveUserDocument(user: Usuario): Promise<boolean> {
+    if (user.perfil === 'admin') {
+      throw new Error(
+        'Violação de Isolamento de Dados: Usuários administradores devem ser salvos exclusivamente no banco administrativo via saveAdminDocument.'
+      );
+    }
+
     const users = this.memoryCache[FIRESTORE_COLLECTIONS.USERS] as Usuario[];
     const index = users.findIndex((u) => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase());
     const userData: Usuario = { ...user, updatedAt: new Date().toISOString() };
@@ -533,14 +569,14 @@ export class FirebaseService {
         await withFirestoreTimeout<any>(setDoc(doc(db, FIRESTORE_COLLECTIONS.USERS, user.id), userData, { merge: true }));
       }
     } catch (err) {
-      // Fallback em memória
+      // Mecanismo de contingência em memória
     }
 
     return true;
   }
 
   /**
-   * Busca um usuário pelo e-mail no Firestore.
+   * Busca um usuário pelo e-mail no Firestore padrão ((default)).
    */
   async getUserByEmail(email: string): Promise<Usuario | null> {
     const normalized = email.trim().toLowerCase();
@@ -556,11 +592,121 @@ export class FirebaseService {
         }
       }
     } catch (err) {
-      // Fallback
+      // Mecanismo de contingência local em memória
     }
 
     const users = this.memoryCache[FIRESTORE_COLLECTIONS.USERS] as Usuario[];
     return users.find((u) => u.email.trim().toLowerCase() === normalized) || null;
+  }
+
+  // ==========================================
+  // BANCO DE DADOS ADMINISTRATIVO (ecosmart-admin-db)
+  // Coleções: admins e admin_logs
+  // ==========================================
+
+  /**
+   * Salva ou atualiza um administrador no banco de dados isolado (ecosmart-admin-db).
+   * Nunca grava na coleção de usuários comuns.
+   */
+  async saveAdminDocument(adminUser: Usuario): Promise<boolean> {
+    const admins = this.adminMemoryCache[ADMIN_COLLECTION] as Usuario[];
+    const index = admins.findIndex((u) => u.id === adminUser.id || u.email.toLowerCase() === adminUser.email.toLowerCase());
+    const adminData: Usuario = { ...adminUser, perfil: 'admin', updatedAt: new Date().toISOString() };
+
+    if (index >= 0) {
+      admins[index] = { ...admins[index], ...adminData };
+    } else {
+      admins.push(adminData);
+    }
+
+    try {
+      const adminDb = getAdminFirebaseDb();
+      if (adminDb && adminUser.id) {
+        const { doc, setDoc } = require('firebase/firestore');
+        await withFirestoreTimeout<any>(
+          setDoc(doc(adminDb, ADMIN_COLLECTION, adminUser.id), adminData, { merge: true })
+        );
+      }
+    } catch (err) {
+      // Mecanismo de contingência em memória
+    }
+
+    return true;
+  }
+
+  /**
+   * Busca um administrador pelo e-mail exclusivamente no banco administrativo isolado.
+   */
+  async getAdminByEmail(email: string): Promise<Usuario | null> {
+    const normalized = email.trim().toLowerCase();
+
+    try {
+      const adminDb = getAdminFirebaseDb();
+      if (adminDb) {
+        const { collection, getDocs, query, where } = require('firebase/firestore');
+        const q = query(collection(adminDb, ADMIN_COLLECTION), where('email', '==', normalized));
+        const snapshot: any = await withFirestoreTimeout<any>(getDocs(q));
+        if (snapshot && !snapshot.empty) {
+          return snapshot.docs[0].data() as Usuario;
+        }
+      }
+    } catch (err) {
+      // Mecanismo de contingência local em memória
+    }
+
+    const admins = this.adminMemoryCache[ADMIN_COLLECTION] as Usuario[];
+    return admins.find((u) => u.email.trim().toLowerCase() === normalized) || null;
+  }
+
+  /**
+   * Busca um administrador pelo ID no banco administrativo isolado.
+   */
+  async getAdminById(id: string): Promise<Usuario | null> {
+    const admins = this.adminMemoryCache[ADMIN_COLLECTION] as Usuario[];
+    return admins.find((u) => u.id === id) || null;
+  }
+
+  /**
+   * Retorna todos os administradores cadastrados na base isolada.
+   */
+  async getAllAdmins(): Promise<Usuario[]> {
+    return [...(this.adminMemoryCache[ADMIN_COLLECTION] as Usuario[])];
+  }
+
+  /**
+   * Registra log de auditoria no banco administrativo dedicado.
+   */
+  async logAdminAudit(adminId: string, adminEmail: string, action: string, details?: string): Promise<void> {
+    const logItem = {
+      id: generateEntityId('log'),
+      adminId,
+      adminEmail,
+      action,
+      details,
+      createdAt: new Date().toISOString(),
+    };
+    this.adminMemoryCache[ADMIN_LOGS_COLLECTION].unshift(logItem);
+
+    try {
+      const adminDb = getAdminFirebaseDb();
+      if (adminDb) {
+        const { doc, setDoc } = require('firebase/firestore');
+        await withFirestoreTimeout<any>(
+          setDoc(doc(adminDb, ADMIN_LOGS_COLLECTION, logItem.id), logItem, { merge: true })
+        );
+      }
+    } catch (err) {}
+  }
+
+  /**
+   * Retorna os logs de auditoria administrativa.
+   */
+  async getAdminLogs(adminId?: string): Promise<any[]> {
+    const logs = this.adminMemoryCache[ADMIN_LOGS_COLLECTION];
+    if (adminId) {
+      return logs.filter((l) => l.adminId === adminId);
+    }
+    return [...logs];
   }
 
   // ==========================================

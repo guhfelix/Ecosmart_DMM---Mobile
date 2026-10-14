@@ -68,9 +68,20 @@ export default function App() {
           crossAppSync.fetchAllDiscards(),
         ]);
 
-        const liveList = Array.isArray(liveDiscards) ? liveDiscards.map(normalizeToCollectorDiscard) : null;
+        const liveList = Array.isArray(liveDiscards) && liveDiscards.length > 0 ? liveDiscards.map(normalizeToCollectorDiscard) : null;
         const localList: CollectorDiscard[] = storedData ? (JSON.parse(storedData) as any[]).map(normalizeToCollectorDiscard) : [];
-        const mergedDiscards = liveList !== null ? liveList : localList;
+
+        let mergedDiscards: CollectorDiscard[] = [];
+        if (liveList && liveList.length > 0) {
+          const map = new Map<string, CollectorDiscard>();
+          localList.forEach((d) => map.set(d.id, d));
+          liveList.forEach((d) => map.set(d.id, d));
+          mergedDiscards = Array.from(map.values());
+        } else if (localList.length > 0) {
+          mergedDiscards = localList;
+        } else {
+          mergedDiscards = [...initialDiscards];
+        }
         setItems(mergedDiscards);
 
         let parsedUsers: RegisteredUser[] = [];
@@ -175,6 +186,56 @@ export default function App() {
     return unsubscribe;
   }, []);
 
+  // --- Efeito: Listener Nativo em Tempo Real do Cloud Firestore ---
+  useEffect(() => {
+    const unsubscribe = firebaseService.subscribeToDiscards((firestoreDiscards) => {
+      if (firestoreDiscards && Array.isArray(firestoreDiscards) && firestoreDiscards.length > 0) {
+        setItems((prev) => {
+          const map = new Map<string, CollectorDiscard>();
+          prev.forEach((d) => map.set(d.id, d));
+          let hasChanges = false;
+          let newFound = 0;
+
+          firestoreDiscards.forEach((d) => {
+            const normalized = normalizeToCollectorDiscard(d);
+            if (!map.has(normalized.id)) {
+              hasChanges = true;
+              newFound++;
+              map.set(normalized.id, normalized);
+            } else {
+              const existing = map.get(normalized.id)!;
+              const isCollected = existing.status === 'coletado' || normalized.status === 'coletado';
+              const finalStatus = isCollected ? 'coletado' : normalized.status;
+              if (existing.status !== finalStatus || existing.address !== normalized.address) {
+                hasChanges = true;
+                map.set(normalized.id, {
+                  ...existing,
+                  ...normalized,
+                  status: finalStatus,
+                  collectedAt: normalized.collectedAt || existing.collectedAt,
+                  coletorId: normalized.coletorId || existing.coletorId,
+                });
+              }
+            }
+          });
+
+          if (newFound > 0) {
+            const notif = createNotification(
+              'Novo Descarte em Cáceres',
+              `${newFound} novo(s) descarte(s) disponível(is) para coleta.`,
+              'discard'
+            );
+            setNotifications((n) => [notif, ...n]);
+          }
+
+          return hasChanges ? Array.from(map.values()) : prev;
+        });
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
   // --- Efeito 3: Sincronização Periódica Inter-Aplicativos em Tempo Real (Loop a cada 1.5s) ---
   useEffect(() => {
     if (!isReady) return;
@@ -271,15 +332,17 @@ export default function App() {
   /** Lista de descartes pendentes filtrados pelo tipo de material selecionado */
   const pendingItems = useMemo(() => {
     return items.filter((item) => {
-      const isPending = (item.status || '').toLowerCase() === 'pendente';
-      const matchesFilter = selectedType === 'Todos' || item.wasteType === selectedType;
+      const statusLower = (item.status || '').toLowerCase();
+      const isPending = statusLower.includes('pendente') && !statusLower.includes('coletado');
+      const itemType = item.wasteType || (item as any).type || '';
+      const matchesFilter = selectedType === 'Todos' || itemType === selectedType;
       return isPending && matchesFilter;
     });
   }, [items, selectedType]);
 
   /** Lista de descartes que já foram coletados pelo usuário */
   const collectedItems = useMemo(() => {
-    return items.filter((item) => (item.status || '').toLowerCase() === 'coletado');
+    return items.filter((item) => (item.status || '').toLowerCase().includes('coletado'));
   }, [items]);
 
   /** Descarte selecionado para exibição na tela de detalhes */

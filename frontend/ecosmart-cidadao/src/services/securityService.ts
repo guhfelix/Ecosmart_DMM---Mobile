@@ -37,6 +37,39 @@ export class SecurityService {
     const timestamp = Date.now().toString(36);
     return `eco_${userId}_${timestamp}_${generateUUID().substring(0, 12)}`;
   }
+
+  /**
+   * Valida se um token de usuário possui permissão para acessar determinado banco de dados Firestore.
+   * Aplica o princípio de privilégio mínimo e isolamento estrito para o ecosmart-admin-db.
+   */
+  canAccessDatabase(token: { role?: string; perfil?: string } | null | undefined, databaseId: string): boolean {
+    if (databaseId === 'ecosmart-admin-db') {
+      if (!token) return false;
+      return token.role === 'admin' || token.perfil === 'admin';
+    }
+    return true;
+  }
+
+  /**
+   * Valida se o usuário possui privilégios para ler ou escrever em determinada coleção.
+   * Bloqueia totalmente o acesso de clientes comuns às coleções administrativas.
+   */
+  canAccessCollection(token: { role?: string; perfil?: string } | null | undefined, collectionName: string): boolean {
+    if (collectionName === 'admins' || collectionName === 'admin_logs') {
+      if (!token) return false;
+      return token.role === 'admin' || token.perfil === 'admin';
+    }
+    return token != null;
+  }
+
+  /**
+   * Assegura privilégio de administrador, lançando exceção caso a Custom Claim não esteja presente.
+   */
+  assertAdminPrivilege(token: { role?: string } | null | undefined): void {
+    if (!token || token.role !== 'admin') {
+      throw new Error('Acesso Negado: Operação restrita a administradores com Custom Claim role == admin.');
+    }
+  }
 }
 
 export const securityService = new SecurityService();

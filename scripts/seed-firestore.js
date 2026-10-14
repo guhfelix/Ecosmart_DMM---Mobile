@@ -1,7 +1,9 @@
 /**
  * Script de Carga de Dados Reais de Cáceres - MT no Cloud Firestore.
  * - Limpa todos os descartes e dados temporários/de teste anteriores.
- * - Mantém e sincroniza os usuários oficiais com seus respectivos logins e senhas.
+ * - Mantém e sincroniza os usuários comuns (Cidadão e Coletor) na coleção 'usuarios'.
+ * - Exclui explicitamente qualquer administrador da coleção 'usuarios'.
+ * - Cria e migra os administradores para a coleção raiz dedicada 'admins'.
  * - Sincroniza catálogo de tipos de resíduos, ecopontos e dicas educativas reais de Cáceres - MT.
  */
 const { initializeApp } = require('firebase/app');
@@ -107,11 +109,11 @@ const COLLECTION_POINTS = [
   {
     id: 'point-caceres-6',
     name: 'Ponto Ecológico DNER',
-    address: 'Rua das Violetas, 210 - Bairro DNER',
+    address: 'Rua das Violetas, 210 - DNER',
     neighborhood: 'DNER',
     city: 'Cáceres',
     state: 'MT',
-    cep: '78207-000',
+    cep: '78207-300',
     acceptedWaste: 'Plástico, Metal, Papelão e Óleo',
     schedule: 'Segunda a Sexta, das 08h às 17h',
     latitude: -16.0815,
@@ -160,25 +162,8 @@ const EDUCATIONAL_TIPS = [
   },
 ];
 
-// 4. Usuários Oficiais do Sistema EcoSmart Cáceres - MT
-const USERS = [
-  {
-    id: 'user-admin-1',
-    nome: 'João Gestor SEMATUR',
-    name: 'João Gestor SEMATUR',
-    email: 'joao@gmail.com',
-    perfil: 'admin',
-    telefone: '(65) 3223-5500',
-    cep: '78200-000',
-    endereco: 'Rua Cel. José Dulce',
-    numero: '500',
-    bairro: 'Centro',
-    cidade: 'Cáceres - MT',
-    cargo: 'Secretário Municipal de Meio Ambiente',
-    departamento: 'SEMATUR - Cáceres MT',
-    bio: 'Gestão e monitoramento ambiental do município de Cáceres - MT.',
-    updatedAt: new Date().toISOString(),
-  },
+// 4. Usuários Comuns (Cidadãos e Coletores) - Exclusivos da coleção 'usuarios'
+const CITIZEN_AND_COLLECTOR_USERS = [
   {
     id: 'user-cidadao-1',
     nome: 'Maria Cidadã Pantaneira',
@@ -209,6 +194,27 @@ const USERS = [
     veiculo: 'Caminhonete de Coleta Seletiva',
     capacidadeCarga: '1.200 kg',
     bio: 'Coleta seletiva diária em Cáceres e suporte a cooperativas locais.',
+    updatedAt: new Date().toISOString(),
+  },
+];
+
+// 5. Usuários Administradores - Exclusivos da coleção raiz 'admins'
+const ADMIN_USERS = [
+  {
+    id: 'user-admin-1',
+    nome: 'João Gestor SEMATUR',
+    name: 'João Gestor SEMATUR',
+    email: 'joao@gmail.com',
+    perfil: 'admin',
+    telefone: '(65) 3223-5500',
+    cep: '78200-000',
+    endereco: 'Rua Cel. José Dulce',
+    numero: '500',
+    bairro: 'Centro',
+    cidade: 'Cáceres - MT',
+    cargo: 'Secretário Municipal de Meio Ambiente',
+    departamento: 'SEMATUR - Cáceres MT',
+    bio: 'Gestão e monitoramento ambiental do município de Cáceres - MT.',
     updatedAt: new Date().toISOString(),
   },
 ];
@@ -247,7 +253,7 @@ async function cleanCollection(collectionName) {
 
 async function seedFirestore() {
   console.log('=================================================================');
-  console.log('🌱 LIMPEZA DE DADOS E SINCRONIZAÇÃO OFICIAL NO FIREBASE FIRESTORE');
+  console.log('🌱 LIMPEZA DE DADOS E MIGRAÇÃO DE ISOLAMENTO NO FIREBASE FIRESTORE');
   console.log('=================================================================');
 
   const authUser = await authenticate();
@@ -255,20 +261,48 @@ async function seedFirestore() {
     console.log(`🔐 Autenticado como Administrador no Firebase: ${authUser.email} (${authUser.uid})\n`);
   }
 
-  // 1. Limpar coleções de descartes e notificações (começar do zero)
+  // 1. Limpar coleções de descartes e notificações
   console.log('🗑️ 1. Removendo todos os registros antigos de descartes e notificações...');
   await cleanCollection('descartes');
   await cleanCollection('notificacoes');
   await cleanCollection('_health_check');
 
-  // 2. Limpar usuários antigos e recriar somente os oficiais
-  console.log('\n👥 2. Sincronizando apenas os usuários oficiais...');
-  await cleanCollection('usuarios');
+  // 2. Limpar e isolar coleção de Usuários Comuns ('usuarios')
+  console.log('\n👥 2. Limpando e isolando a coleção de usuários comuns (usuarios)...');
+  
+  // Exclui explicitamente o documento 'user-admin-1' caso ainda resida em 'usuarios'
+  try {
+    await deleteDoc(doc(db, 'usuarios', 'user-admin-1'));
+    console.log("  🧹 Exclusão explícita de 'user-admin-1' da coleção 'usuarios': SUCESSO");
+  } catch (e) {
+    console.log(`  ℹ️ Documento 'user-admin-1' já não estava em 'usuarios': ${e.message}`);
+  }
 
   if (authUser) {
-    await setDoc(doc(db, 'usuarios', authUser.uid), {
+    try {
+      await deleteDoc(doc(db, 'usuarios', authUser.uid));
+      console.log(`  🧹 Exclusão da conta de admin ${authUser.uid} de 'usuarios': SUCESSO`);
+    } catch (e) {}
+  }
+
+  // Cadastra exclusivamente Cidadãos e Coletores em 'usuarios'
+  for (const user of CITIZEN_AND_COLLECTOR_USERS) {
+    await setDoc(doc(db, 'usuarios', user.id), user, { merge: true });
+    console.log(`  ✅ Usuário comum cadastrado em 'usuarios': ${user.name} (${user.email}) - Perfil: ${user.perfil}`);
+  }
+
+  // 3. Sincronizar Coleção Raiz Isolada de Administradores ('admins')
+  console.log("\n👑 3. Migrando e sincronizando Administradores na coleção raiz exclusiva 'admins'...");
+  for (const adminUser of ADMIN_USERS) {
+    await setDoc(doc(db, 'admins', adminUser.id), adminUser, { merge: true });
+    console.log(`  ✅ Administrador cadastrado em 'admins': ${adminUser.name} (${adminUser.email})`);
+  }
+
+  if (authUser) {
+    await setDoc(doc(db, 'admins', authUser.uid), {
       id: authUser.uid,
       nome: 'João Gestor SEMATUR',
+      name: 'João Gestor SEMATUR',
       email: authUser.email,
       perfil: 'admin',
       cidade: 'Cáceres - MT',
@@ -277,41 +311,40 @@ async function seedFirestore() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }, { merge: true });
+    console.log(`  ✅ Conta auth migrada para 'admins': ${authUser.email} (${authUser.uid})`);
   }
 
-  for (const user of USERS) {
-    await setDoc(doc(db, 'usuarios', user.id), user, { merge: true });
-    console.log(`  ✅ Usuário cadastrado: ${user.name} (${user.email}) - Perfil: ${user.perfil}`);
-  }
-
-  // 3. Catálogo de Tipos de Resíduos
-  console.log('\n♻️ 3. Sincronizando Tipos de Resíduos oficiais...');
+  // 4. Catálogo de Tipos de Resíduos
+  console.log('\n♻️ 4. Sincronizando Tipos de Resíduos oficiais...');
   for (const item of WASTE_TYPES) {
     await setDoc(doc(db, 'tipos_residuos', item.id), item, { merge: true });
   }
   console.log(`  ✅ ${WASTE_TYPES.length} Tipos de Resíduos cadastrados no Firestore.`);
 
-  // 4. Pontos de Coleta Seletiva em Cáceres - MT
-  console.log('\n📍 4. Sincronizando Pontos de Coleta e Ecopontos reais de Cáceres...');
+  // 5. Pontos de Coleta Seletiva em Cáceres - MT
+  console.log('\n📍 5. Sincronizando Pontos de Coleta e Ecopontos reais de Cáceres...');
   for (const item of COLLECTION_POINTS) {
     await setDoc(doc(db, 'pontos_coleta', item.id), item, { merge: true });
   }
   console.log(`  ✅ ${COLLECTION_POINTS.length} Ecopontos e Locais de Coleta cadastrados no Firestore.`);
 
-  // 5. Dicas Educativas
-  console.log('\n💡 5. Sincronizando Dicas Educativas de Sustentabilidade...');
+  // 6. Dicas Educativas
+  console.log('\n💡 6. Sincronizando Dicas Educativas de Sustentabilidade...');
   for (const item of EDUCATIONAL_TIPS) {
     await setDoc(doc(db, 'dicas_educativas', item.id), item, { merge: true });
   }
   console.log(`  ✅ ${EDUCATIONAL_TIPS.length} Dicas Educativas cadastradas no Firestore.`);
 
   console.log('\n=================================================================');
-  console.log('🎉 SINCRONIZAÇÃO FIREBASE CONCLUÍDA COM 100% DE SUCESSO!');
+  console.log('🎉 MIGRAÇÃO E SINCRONIZAÇÃO FIREBASE CONCLUÍDAS COM SUCESSO!');
   console.log('=================================================================');
+  console.log('Estrutura de Isolamento no Console do Firebase:');
+  console.log("  📂 Coleção 'usuarios' : Apenas Cidadãos e Coletores (user-cidadao-1, user-coletor-1)");
+  console.log("  📂 Coleção 'admins'   : Exclusiva para Gestores (user-admin-1)");
   console.log('Logins e Senhas Oficiais Disponíveis:');
-  console.log('  👑 Administrador : joao@gmail.com  | Senha: 1234');
-  console.log('  🌱 Cidadão       : maria@gmail.com | Senha: 1234');
-  console.log('  🚛 Coletor       : lucas@gmail.com | Senha: 1234');
+  console.log('  👑 Administrador : joao@gmail.com  | Senha: 1234  [Coleção: admins]');
+  console.log('  🌱 Cidadão       : maria@gmail.com | Senha: 1234  [Coleção: usuarios]');
+  console.log('  🚛 Coletor       : lucas@gmail.com | Senha: 1234  [Coleção: usuarios]');
   console.log('=================================================================');
   process.exit(0);
 }
@@ -320,4 +353,3 @@ seedFirestore().catch((err) => {
   console.error('❌ Erro fatal na sincronização do Firestore:', err);
   process.exit(1);
 });
-

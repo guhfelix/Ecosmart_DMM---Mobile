@@ -30,7 +30,7 @@ export interface SyncEvent {
 }
 
 /**
- * Helper com timeout para chamadas HTTP seguras
+ * Função auxiliar com timeout para chamadas HTTP seguras
  */
 async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout = TIMEOUT_MS): Promise<Response> {
   if (typeof AbortController === 'undefined') {
@@ -144,7 +144,7 @@ export class CrossAppSyncService {
       }
     } catch (err) {}
 
-    // 3. Fallback no armazenamento local específico do usuário
+    // 3. Mecanismo de contingência no armazenamento local específico do usuário
     try {
       const userKey = userId ? `${STORAGE_KEYS.CIDADAO.DISCARDS}_${userId}` : STORAGE_KEYS.CIDADAO.DISCARDS;
       const stored = await AsyncStorage.getItem(userKey);
@@ -163,15 +163,18 @@ export class CrossAppSyncService {
    * Busca a lista mais atualizada de descartes (combinando Servidor Sync, Cloud Firestore e Local Storage).
    */
   async fetchAllDiscards(): Promise<CollectorDiscard[]> {
+    const map = new Map<string, CollectorDiscard>();
+
     // 1. Tenta obter do Servidor de Sincronização Local (em tempo real)
     try {
-      const res = await fetchWithTimeout(`${SYNC_SERVER_URL}/api/discards`, { method: 'GET' });
+      const res = await fetchWithTimeout(`${SYNC_SERVER_URL}/api/discards`, { method: 'GET' }, 3000);
       if (res.ok) {
         const serverDiscards = await res.json();
-        if (Array.isArray(serverDiscards) && serverDiscards.length > 0) {
-          const normalized = serverDiscards.map(normalizeToCollectorDiscard);
-          AsyncStorage.setItem(STORAGE_KEYS.SHARED.DISCARDS, JSON.stringify(normalized)).catch(() => {});
-          return normalized;
+        if (Array.isArray(serverDiscards)) {
+          serverDiscards.forEach((d) => {
+            const normalized = normalizeToCollectorDiscard(d);
+            map.set(normalized.id, normalized);
+          });
         }
       }
     } catch (err) {
@@ -182,24 +185,46 @@ export class CrossAppSyncService {
     try {
       const cloudDiscards = await firebaseService.getDiscards();
       if (Array.isArray(cloudDiscards)) {
-        const normalized = cloudDiscards.map(normalizeToCollectorDiscard);
-        AsyncStorage.setItem(STORAGE_KEYS.SHARED.DISCARDS, JSON.stringify(normalized)).catch(() => {});
-        return normalized;
+        cloudDiscards.forEach((d) => {
+          const normalized = normalizeToCollectorDiscard(d);
+          const existing = map.get(normalized.id);
+          if (existing) {
+            const isCollected = existing.status === 'coletado' || normalized.status === 'coletado';
+            map.set(normalized.id, {
+              ...existing,
+              ...normalized,
+              status: isCollected ? 'coletado' : normalized.status,
+            });
+          } else {
+            map.set(normalized.id, normalized);
+          }
+        });
       }
     } catch (err) {
-      // Fallback
+      // Mecanismo de contingência local
     }
 
-    // 3. Fallback no armazenamento compartilhado local
+    // 3. Mecanismo de contingência no armazenamento compartilhado local
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEYS.SHARED.DISCARDS);
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
-          return parsed.map(normalizeToCollectorDiscard);
+          parsed.forEach((d: any) => {
+            const normalized = normalizeToCollectorDiscard(d);
+            if (!map.has(normalized.id)) {
+              map.set(normalized.id, normalized);
+            }
+          });
         }
       }
     } catch (err) {}
+
+    const result = Array.from(map.values());
+    if (result.length > 0) {
+      AsyncStorage.setItem(STORAGE_KEYS.SHARED.DISCARDS, JSON.stringify(result)).catch(() => {});
+      return result;
+    }
 
     return [];
   }

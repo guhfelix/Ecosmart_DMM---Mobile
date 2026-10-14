@@ -76,6 +76,12 @@ export const DEFAULT_USERS: Record<PerfilUsuario, RegisteredUser> = {
   },
 };
 
+/** Administradores isolados padrão */
+export const ALL_DEFAULT_ADMINS: RegisteredUser[] = [DEFAULT_USERS.admin];
+
+/** Usuários comuns padrão (Cidadãos e Coletores) */
+export const ALL_DEFAULT_REGULAR_USERS: RegisteredUser[] = [DEFAULT_USERS.cidadao, DEFAULT_USERS.coletor];
+
 export const ALL_DEFAULT_USERS: RegisteredUser[] = Object.values(DEFAULT_USERS);
 
 export function getRoleAccessErrorMessage(actualRole: PerfilUsuario): string {
@@ -97,9 +103,13 @@ export function validateUserProfile(
   extraUsers: RegisteredUser[] = []
 ): { isValid: boolean; message?: string; user?: RegisteredUser } {
   const normalizedEmail = email.trim().toLowerCase();
-  const allUsers = [...extraUsers, ...ALL_DEFAULT_USERS];
   
-  const foundUser = allUsers.find(
+  // Isolamento estrito de validação
+  const candidatePool = expectedRole === 'admin'
+    ? [...extraUsers.filter((u) => u.perfil === 'admin'), ...ALL_DEFAULT_ADMINS]
+    : [...extraUsers.filter((u) => u.perfil !== 'admin'), ...ALL_DEFAULT_REGULAR_USERS];
+
+  const foundUser = candidatePool.find(
     (u) => u.email.trim().toLowerCase() === normalizedEmail
   );
 
@@ -125,14 +135,34 @@ export function authenticateUser(
   registeredUsers: RegisteredUser[] = []
 ): { success: boolean; message?: string; user?: Usuario } {
   const normalizedEmail = email.trim().toLowerCase();
-  // Busca primeiro nos usuários cadastrados/atualizados dinamicamente, depois nos defaults
-  const allUsers = [...registeredUsers, ...ALL_DEFAULT_USERS];
+  
+  // Consulta estritamente a base isolada de acordo com o perfil
+  let targetPool: RegisteredUser[];
+  let opposingPool: RegisteredUser[];
 
-  const foundUser = allUsers.find(
+  if (expectedRole === 'admin') {
+    const adminCustom = registeredUsers.filter((u) => u.perfil === 'admin');
+    targetPool = adminCustom.length > 0 ? adminCustom : ALL_DEFAULT_ADMINS;
+    opposingPool = [...registeredUsers.filter((u) => u.perfil !== 'admin'), ...ALL_DEFAULT_REGULAR_USERS];
+  } else {
+    const regularCustom = registeredUsers.filter((u) => u.perfil !== 'admin');
+    targetPool = regularCustom.length > 0 ? regularCustom : ALL_DEFAULT_REGULAR_USERS;
+    opposingPool = [...registeredUsers.filter((u) => u.perfil === 'admin'), ...ALL_DEFAULT_ADMINS];
+  }
+
+  const foundUser = targetPool.find(
     (u) => u.email.trim().toLowerCase() === normalizedEmail
   );
 
   if (!foundUser) {
+    const crossUser = opposingPool.find((u) => u.email.trim().toLowerCase() === normalizedEmail);
+    if (crossUser) {
+      return {
+        success: false,
+        message: getRoleAccessErrorMessage(crossUser.perfil),
+      };
+    }
+
     return {
       success: false,
       message: 'Verifique o e-mail e a senha informados.',
@@ -248,11 +278,15 @@ export function registerUser(
     bio: newUser.bio,
   };
 
-  // Salva no Firestore
+  // Salva no Firestore (direcionado ao banco isolado correspondente)
   try {
-    firebaseService.saveUserDocument(sessionUser);
+    if (sessionUser.perfil === 'admin') {
+      firebaseService.saveAdminDocument(sessionUser);
+    } else {
+      firebaseService.saveUserDocument(sessionUser);
+    }
   } catch (err) {
-    // Fallback
+    // Mecanismo de contingência (fallback) em cache offline
   }
 
   return {
@@ -385,7 +419,7 @@ export async function signInWithGoogle(
           googleUserId = authResult.user.uid;
         }
       } catch (authError) {
-        // Fallback para mobile
+        // Mecanismo de contingência local para ambiente móvel
       }
     }
 
@@ -469,9 +503,13 @@ export async function signInWithGoogle(
     }
 
     try {
-      await firebaseService.saveUserDocument(sessionUser);
+      if (sessionUser.perfil === 'admin') {
+        await firebaseService.saveAdminDocument(sessionUser);
+      } else {
+        await firebaseService.saveUserDocument(sessionUser);
+      }
     } catch (dbErr) {
-      // Fallback
+      // Mecanismo de contingência local em memória
     }
 
     return {

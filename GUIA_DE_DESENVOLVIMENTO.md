@@ -100,6 +100,7 @@ flowchart TD
 - [x] **4.3. Proteção de Cadastro por Tipo de Aplicativo:** App Cidadão gera `cidadao`, App Coletor gera `coletor`, e App Admin exige o **Código de Acesso Administrativo** (`ADMIN2026`).
 - [x] **4.4. Isolamento de Sessão e Storage no `AsyncStorage`:** Namespaces isolados por aplicativo: `@ecosmart_cidadao_*`, `@ecosmart_coletor_*`, `@ecosmart_admin_*`.
 - [x] **4.5. Centralização e Recuperação de Senha em `shared/`:** `authService.ts` com autenticação, cadastro, `signInWithGoogle`, `requestPasswordReset` e `resetPassword`.
+- [x] **4.6. Isolamento Arquitetural no Cloud Firestore (`(default)`):** Separação estrita em nível de coleções raiz. Administradores (`user-admin-1`) residem exclusivamente em `/admins`, bloqueados para leitura/escrita de usuários comuns via Security Rules. A coleção `/usuarios` abriga apenas cidadãos e coletores.
 
 ---
 
@@ -150,6 +151,6 @@ Scripts com duplo clique (.bat) para Windows com auto-inicialização do servido
 
 ## 🧪 9. Qualidade, Testes Automatizados e Cobertura (Etapa Obrigatória)
 
-* **75 suítes de testes** e **386 testes automatizados** (100% de aprovação).
+* **77 suítes de testes** e **425 testes automatizados** (100% de aprovação).
 * **0 erros de tipagem estática** TypeScript (`npm run typecheck:all`).
 * **Diagnóstico de Comunicação:** `npm run test:communication`.

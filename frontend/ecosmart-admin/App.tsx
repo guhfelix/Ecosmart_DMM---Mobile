@@ -254,7 +254,7 @@ export default function App() {
     AsyncStorage.setItem(STORAGE_KEYS.SHARED.USERS, JSON.stringify(registeredUsers)).catch(console.log);
   }, [registeredUsers, isReady]);
 
-  // --- Handlers de Autenticação e Usuário ---
+  // --- Manipuladores de Autenticação e Usuário ---
   const handleUpdateUser = async (updatedUser: Usuario) => {
     setCurrentUser(updatedUser);
     setRegisteredUsers((prev) => {

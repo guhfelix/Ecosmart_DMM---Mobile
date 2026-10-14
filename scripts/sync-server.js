@@ -15,21 +15,6 @@ const INITIAL_CACERES_DISCARDS = [];
 
 const INITIAL_CACERES_USERS = [
   {
-    id: 'user-admin-1',
-    nome: 'João Gestor SEMATUR',
-    email: 'joao@gmail.com',
-    perfil: 'admin',
-    telefone: '(65) 3223-5500',
-    cep: '78200-000',
-    endereco: 'Rua Cel. José Dulce',
-    numero: '500',
-    bairro: 'Centro',
-    cidade: 'Cáceres - MT',
-    cargo: 'Secretário Municipal de Meio Ambiente',
-    departamento: 'SEMATUR - Cáceres MT',
-    bio: 'Gestão e monitoramento ambiental do município de Cáceres - MT.',
-  },
-  {
     id: 'user-cidadao-1',
     nome: 'Maria Cidadã Pantaneira',
     email: 'maria@gmail.com',
@@ -59,9 +44,28 @@ const INITIAL_CACERES_USERS = [
   },
 ];
 
+const INITIAL_CACERES_ADMINS = [
+  {
+    id: 'user-admin-1',
+    nome: 'João Gestor SEMATUR',
+    email: 'joao@gmail.com',
+    perfil: 'admin',
+    telefone: '(65) 3223-5500',
+    cep: '78200-000',
+    endereco: 'Rua Cel. José Dulce',
+    numero: '500',
+    bairro: 'Centro',
+    cidade: 'Cáceres - MT',
+    cargo: 'Secretário Municipal de Meio Ambiente',
+    departamento: 'SEMATUR - Cáceres MT',
+    bio: 'Gestão e monitoramento ambiental do município de Cáceres - MT.',
+  },
+];
+
 let dbState = {
   discards: [...INITIAL_CACERES_DISCARDS],
   users: [...INITIAL_CACERES_USERS],
+  admins: [...INITIAL_CACERES_ADMINS],
   lastUpdated: new Date().toISOString(),
 };
 
@@ -74,6 +78,7 @@ if (fs.existsSync(DB_FILE)) {
       dbState = {
         discards: parsed.discards.length > 0 ? parsed.discards : INITIAL_CACERES_DISCARDS,
         users: Array.isArray(parsed.users) && parsed.users.length > 0 ? parsed.users : INITIAL_CACERES_USERS,
+        admins: Array.isArray(parsed.admins) && parsed.admins.length > 0 ? parsed.admins : INITIAL_CACERES_ADMINS,
         lastUpdated: parsed.lastUpdated || new Date().toISOString(),
       };
     }

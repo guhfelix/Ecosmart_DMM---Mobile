@@ -27,6 +27,10 @@ export const defaultFirebaseConfig: FirebaseConfig = {
   measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID || 'G-KPNJWGPF8R',
 };
 
+export const FIRESTORE_DATABASE_ID = '(default)';
+// Isolamento Arquitetural: Banco administrativo restrito ao EcoSmart Admin
+export const ADMIN_DATABASE_ID = undefined;
+
 export const FIRESTORE_COLLECTIONS = {
   USERS: 'usuarios',
   DISCARDS: 'descartes',
@@ -36,6 +40,9 @@ export const FIRESTORE_COLLECTIONS = {
   NOTIFICATIONS: 'notificacoes',
   ESG_METRICS: 'metricas_esg',
 } as const;
+
+// Coleções administrativas omitidas no aplicativo comum
+export const ADMIN_FIRESTORE_COLLECTIONS = undefined;
 
 let firebaseAppInstance: any = null;
 
@@ -57,7 +64,8 @@ export function getFirebaseApp(config: FirebaseConfig = defaultFirebaseConfig) {
 }
 
 /**
- * Obtém a instância do Cloud Firestore
+ * Obtém a instância do Cloud Firestore para o Banco Padrão ((default)).
+ * Instância única utilizada por todo o ecossistema com partições lógicas em nível de coleção raiz.
  */
 export function getFirebaseDb() {
   try {
@@ -67,6 +75,16 @@ export function getFirebaseDb() {
   } catch (error) {
     return null;
   }
+}
+
+/**
+ * Obtém a instância do Cloud Firestore para o Contexto Administrativo.
+ * Opera sobre a mesma instância (default) do Firestore no projeto EcoSmart-Mobile,
+ * com acesso total de leitura e escrita e direcionando dados de gestão para as coleções
+ * raiz exclusivas e isoladas ('admins' e 'admin_logs').
+ */
+export function getAdminFirebaseDb(): never {
+  throw new Error('Acesso Proibido: Este aplicativo conecta-se exclusivamente ao banco padrão ((default)) e não possui acesso ao banco de dados administrativo.');
 }
 
 /**
@@ -99,6 +117,7 @@ let authInitPromise: Promise<any> | null = null;
 
 /**
  * Garante que a sessão com o Firebase Auth esteja autenticada para leitura/escrita no Firestore.
+ * Não vaza credenciais administrativas fixas.
  */
 export async function ensureFirebaseAuth(): Promise<any> {
   if (authInitPromise) return authInitPromise;
@@ -109,13 +128,14 @@ export async function ensureFirebaseAuth(): Promise<any> {
       if (!auth) return null;
       if (auth.currentUser) return auth.currentUser;
 
-      const { signInWithEmailAndPassword } = require('firebase/auth');
-      const cred = await signInWithEmailAndPassword(
-        auth,
-        process.env.EXPO_PUBLIC_FIREBASE_ADMIN_EMAIL || 'admin.caceres@ecosmart.com',
-        process.env.EXPO_PUBLIC_FIREBASE_ADMIN_PASSWORD || 'Password@1234'
-      );
-      return cred.user;
+      const email = process.env.EXPO_PUBLIC_FIREBASE_AUTH_EMAIL;
+      const password = process.env.EXPO_PUBLIC_FIREBASE_AUTH_PASSWORD;
+      if (email && password) {
+        const { signInWithEmailAndPassword } = require('firebase/auth');
+        const cred = await signInWithEmailAndPassword(auth, email, password);
+        return cred.user;
+      }
+      return null;
     } catch (e) {
       return null;
     }

@@ -61,6 +61,26 @@ export class AdminController {
   async saveTip(item: any) { return adminRepository.saveTip(item); }
   /** Exclui uma dica educativa pelo ID */
   async deleteTip(id: string) { return adminRepository.deleteTip(id); }
+
+  // --- Credenciais e Perfis de Administradores (Isolados) ---
+  /** Obtém o perfil de um administrador pelo e-mail na base isolada */
+  async getAdminByEmail(email: string) { return adminRepository.getAdminByEmail(email); }
+  /** Obtém o perfil de um administrador pelo ID */
+  async getAdminById(id: string) { return adminRepository.getAdminById(id); }
+  /** Lista todos os administradores cadastrados no banco isolado */
+  async getAllAdmins() { return adminRepository.getAllAdmins(); }
+  /** Cria um novo administrador no banco exclusivo */
+  async createAdmin(data: any) { return adminRepository.createAdmin(data); }
+  /** Atualiza o perfil de um administrador */
+  async updateAdmin(id: string, updates: any) { return adminRepository.updateAdmin(id, updates); }
+
+  // --- Logs de Auditoria Administrativa ---
+  /** Registra uma ação administrativa para auditoria */
+  async logAdminAction(adminId: string, adminEmail: string, acao: string, detalhes?: string) {
+    return adminRepository.logAction({ admin_id: adminId, admin_email: adminEmail, acao, detalhes });
+  }
+  /** Obtém os logs de auditoria */
+  async getAdminLogs(adminId?: string) { return adminRepository.getAdminLogs(adminId); }
 }
 
 export const adminController = new AdminController();

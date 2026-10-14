@@ -122,6 +122,7 @@ export type CollectorDiscard = {
   distanceKm?: number;
   offlineSyncPending?: boolean;
   photoUri?: string;
+  updatedAt?: string;
 };
 
 /** Tipo de resíduo reciclável */

@@ -32,4 +32,51 @@ describe('securityService (Criptografia e Sessões)', () => {
     const token = securityService.generateSessionToken('user-123');
     expect(token).toMatch(/^eco_user-123_/);
   });
+
+  describe('Isolamento de Banco de Dados e Privilégio Mínimo (ecosmart-admin-db)', () => {
+    it('deve impedir que usuários comuns (cidadão/coletor) acessem ecosmart-admin-db', () => {
+      const cidadaoToken = { role: 'cidadao', perfil: 'cidadao' };
+      const coletorToken = { role: 'coletor', perfil: 'coletor' };
+      const anonToken = null;
+
+      expect(securityService.canAccessDatabase(cidadaoToken, 'ecosmart-admin-db')).toBe(false);
+      expect(securityService.canAccessDatabase(coletorToken, 'ecosmart-admin-db')).toBe(false);
+      expect(securityService.canAccessDatabase(anonToken, 'ecosmart-admin-db')).toBe(false);
+    });
+
+    it('deve permitir acesso ao banco de dados administrativo apenas para tokens de administrador', () => {
+      const adminToken = { role: 'admin', perfil: 'admin' };
+      expect(securityService.canAccessDatabase(adminToken, 'ecosmart-admin-db')).toBe(true);
+    });
+
+    it('deve permitir acesso ao banco padrão ((default)) para usuários autenticados', () => {
+      const cidadaoToken = { role: 'cidadao', perfil: 'cidadao' };
+      expect(securityService.canAccessDatabase(cidadaoToken, '(default)')).toBe(true);
+    });
+
+    it('deve bloquear clientes comuns de acessar as coleções admins e admin_logs', () => {
+      const cidadaoToken = { role: 'cidadao', perfil: 'cidadao' };
+      const coletorToken = { role: 'coletor', perfil: 'coletor' };
+
+      expect(securityService.canAccessCollection(cidadaoToken, 'admins')).toBe(false);
+      expect(securityService.canAccessCollection(coletorToken, 'admins')).toBe(false);
+      expect(securityService.canAccessCollection(cidadaoToken, 'admin_logs')).toBe(false);
+      expect(securityService.canAccessCollection(coletorToken, 'admin_logs')).toBe(false);
+    });
+
+    it('deve permitir que administradores acessem as coleções exclusivas de admins', () => {
+      const adminToken = { role: 'admin', perfil: 'admin' };
+      expect(securityService.canAccessCollection(adminToken, 'admins')).toBe(true);
+      expect(securityService.canAccessCollection(adminToken, 'admin_logs')).toBe(true);
+    });
+
+    it('assertAdminPrivilege deve lançar exceção para usuários comuns e passar para admin', () => {
+      const cidadaoToken = { role: 'cidadao' };
+      const adminToken = { role: 'admin' };
+
+      expect(() => securityService.assertAdminPrivilege(cidadaoToken)).toThrow('Acesso Negado');
+      expect(() => securityService.assertAdminPrivilege(null)).toThrow('Acesso Negado');
+      expect(() => securityService.assertAdminPrivilege(adminToken)).not.toThrow();
+    });
+  });
 });

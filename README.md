@@ -7,7 +7,7 @@
 ![Expo](https://img.shields.io/badge/Expo-SDK%2054-black)
 ![Node.js](https://img.shields.io/badge/Node.js-Backend%20REST-green)
 ![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue)
-![Tests](https://img.shields.io/badge/Tests-75%20suites%20%7C%20386%20passed-success)
+![Tests](https://img.shields.io/badge/Tests-77%20suites%20%7C%20425%20passed-success)
 ![Firebase](https://img.shields.io/badge/Firebase-Firestore%20%2B%20Auth-orange)
 ![License](https://img.shields.io/badge/license-academic-lightgrey)
 
@@ -19,8 +19,83 @@ O projeto é estruturado em três aplicativos móveis independentes em **React N
 | :--- | :--- | :--- | :--- |
 | **EcoSmart Cidadão** | Cidadão | `8081` | Registro rápido de descartes (tipo, quantidade, endereço com CEP e GPS simplificado), gravação direta no Firestore (`saveCitizenDiscard`), histórico com busca e filtros, dicas, pontos com rotas, auto-sync, **Login com Google (Firebase Auth)** e **Perfil do Cidadão**. |
 | **EcoSmart Empresa/Catador** | Coletor | `8082` | Feed de descartes com distâncias geográficas (Haversine), ouvintes em tempo real (`onSnapshot`), ordenação por proximidade, rota GPS e baixa de coleta em 1 toque no card, auto-sync, **Login com Google (Firebase Auth)** e **Perfil Operacional**. |
-| **EcoSmart Admin** | Administrador | `8083` | **Login com Google / Chave Mestre (ADMIN2026)**, CRUDs de resíduos, pontos e dicas com busca em tempo real, dashboard e exportação de Relatórios ESG (CSV) e **Perfil de Gestão Master**. |
+| **EcoSmart Admin** | Administrador | `8083` | **Login com Google / Chave Mestre (ADMIN2026)**, base exclusiva de gestão isolada no Firestore, CRUDs de resíduos, pontos e dicas com busca em tempo real, dashboard e exportação de Relatórios ESG (CSV) e **Perfil de Gestão Master**. |
 | **Servidor Central Backend** | API REST / Node.js | `3333` | API centralizada de sincronização em tempo real, barramento de eventos, persistência intermediária, controle de rotas de descartes/coletas e verificação automática com o Firebase Firestore. |
+
+---
+
+## 📁 Estrutura de Pastas e Módulos do Projeto
+
+O repositório é configurado como um monorepo modular organizado da seguinte forma:
+
+```text
+Ecosmart_DMM---Mobile/
+├── frontend/                     📱 Aplicativos móveis independentes (React Native / Expo SDK 54)
+│   ├── ecosmart-cidadao/         # App Cidadão (Porta 8081 - Cadastro de descartes, histórico, PEVs e perfil)
+│   ├── ecosmart-coletor/         # App Coletor/Catador (Porta 8082 - Feed georreferenciado, rotas GPS e baixa em 1 toque)
+│   └── ecosmart-admin/           # App Gestor/Admin (Porta 8083 - Catálogos, auditoria, relatórios ESG e base isolada)
+│
+├── shared/                       🔄 Núcleo de código e contratos compartilhados entre os frontends
+│   ├── components/               # Componentes compartilhados (AppCard, OfflineBanner, NotificationModal)
+│   ├── data/                     # Dados semente locais com geolocalização oficial de Cáceres - MT
+│   ├── hooks/                    # Hooks reutilizáveis (useNetworkStatus para modo offline)
+│   ├── models/                   # Contratos TypeScript de domínio (Usuario, Descarte, CollectorDiscard, etc.)
+│   ├── services/                 # Serviços centrais (firebaseService, authService, crossAppSync, cepService, reportService)
+│   ├── theme/                    # Paleta de cores, tipografia e diretrizes visuais
+│   └── utils/                    # Utilitários de distância (Haversine), IDs e validações
+│
+├── backend/                      ⚙️ Servidor Backend em Node.js / Express
+│   └── src/
+│       ├── controllers/          # Controladores REST (authController, discardController, adminController)
+│       ├── routes/               # Rotas da API REST (/api/discards, /api/users, /api/health)
+│       ├── services/             # Regras de negócio e sincronização offline (syncService)
+│       └── server.ts             # Ponto de entrada do servidor backend
+│
+├── database/                     🗄️ Esquemas de dados, regras de segurança e persistência
+│   ├── data/                     # Banco local JSON persistido em disco (ecosmart-live-db.json)
+│   ├── repositories/             # Repositórios desacoplados (userRepository, discardRepository, adminRepository)
+│   ├── schemas/                  # Regras Firestore (firestore.rules), índices e esquemas SQL
+│   └── seeds/                    # Carga inicial com coordenadas reais do Pantanal e Cáceres - MT
+│
+├── scripts/                      🛠️ Scripts utilitários de automação e integração
+│   ├── sync-shared.js            # Sincroniza e sanitiza shared/ para os 3 frontends com blindagem de isolamento
+│   ├── seed-firestore.js         # Migração ao vivo e carga de dados com isolamento estrito no Cloud Firestore
+│   ├── sync-server.js            # Servidor central REST de sincronização (Porta 3333)
+│   ├── ensure-server.js          # Auto-inicializador do servidor backend e verificação do Firebase
+│   ├── test-communication.js     # Diagnóstico automatizado E2E de integração da API e Firestore
+│   └── start-all.js              # Inicialização concorrente dos 3 apps e do backend
+│
+├── executaveis/                  🚀 Automações em lote (.bat) para execução com duplo clique no Windows
+│   ├── MENU-ECOSMART.bat         # Painel interativo com menu de opções para todo o ecossistema
+│   ├── 1-instalar-dependencias.bat
+│   ├── 2-executar-testes.bat
+│   ├── 3-iniciar-cidadao.bat
+│   ├── 4-iniciar-coletor.bat
+│   ├── 5-iniciar-admin.bat
+│   ├── 6-sincronizar-modulos.bat
+│   ├── 7-testar-comunicacao.bat
+│   └── 8-iniciar-servidor.bat
+│
+└── docs/                         📚 Documentação técnica completa, arquitetura, segurança e manuais
+```
+
+---
+
+## 🛡️ Arquitetura de Isolamento de Dados do Administrador no Firestore `(default)`
+
+Para garantir a **máxima segurança e privacidade** sem gerar custos adicionais de múltiplos bancos no GCP, o ecossistema utiliza a instância padrão `(default)` do Cloud Firestore estruturada em **ambientes estritamente isolados no nível de coleções raiz**:
+
+1. **Coleções Raiz Dedicadas da Administração:**
+   - `/admins/{adminId}`: Coleção raiz exclusiva para credenciais, perfis e dados de gestores públicos (`user-admin-1` - João Gestor SEMATUR).
+   - `/admin_logs/{logId}`: Coleção raiz de auditoria das ações administrativas.
+   - **Regra de Acesso:** Bloqueio total para clientes comuns (`allow read, write: if isAdmin();`). Cidadãos e Coletores não têm permissão de listar nem ler documentos administrativos.
+2. **Coleção de Usuários Operacionais (`/usuarios`):**
+   - Contém **exclusivamente** perfis operacionais (`cidadao` e `coletor`). Administradores são proibidos de residir nesta coleção.
+   - Tentativas de cadastro de perfil `admin` nesta coleção disparam exceção defensiva imediata.
+3. **Acesso Cruzado de Gestão:**
+   - O aplicativo administrativo (`ecosmart-admin`) conecta à sua base exclusiva (`admins` e `admin_logs`) para autenticação e governança, mantendo acesso de leitura e escrita às coleções gerais (`usuarios`, `descartes`, `pontos_coleta`, `tipos_residuos`, `dicas_educativas`) para monitoramento ESG.
+4. **Script de Migração e Sincronização ao Vivo:**
+   - Execute `node scripts/seed-firestore.js` para migrar o administrador para a coleção dedicada `admins` e limpar contas gestoras da coleção `usuarios`.
 
 ---
 
@@ -88,16 +163,16 @@ A pasta [`executaveis/`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre
 
 ## 🧪 Qualidade e Testes Automatizados
 
-O ecossistema conta com **75 suítes de testes** e **386 testes automatizados** (100% de sucesso):
+O ecossistema conta com **77 suítes de testes** e **425 testes automatizados** (100% de sucesso):
 
 ```bash
-# Executa todos os testes dos 3 aplicativos
+# Executa todos os testes dos 3 aplicativos com propagação do shared
 npm run test:all
 
 # Executa diagnóstico prático de comunicação da API e Firebase
 npm run test:communication
 
-# Executa verificação estática de tipos TypeScript
+# Executa verificação estática de tipos TypeScript em todo o monorepo
 npm run typecheck:all
 ```
 
@@ -121,4 +196,10 @@ npm run start:admin
 ```bash
 # Iniciar Servidor Central REST (Porta 3333)
 npm run server
+```
+
+### 3. Migrar e Popular o Cloud Firestore:
+```bash
+# Sincroniza dados com Cáceres - MT e isola a base administrativa
+node scripts/seed-firestore.js
 ```

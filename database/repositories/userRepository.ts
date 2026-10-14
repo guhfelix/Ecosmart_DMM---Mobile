@@ -29,9 +29,16 @@ export class UserRepository {
 
   /**
    * Cadastra um novo usuário gerando ID semântico e timestamp de criação.
+   * Não permite o cadastro de administradores no repositório comum.
    * @param user Dados cadastrais do usuário
    */
   async create(user: Omit<DbUser, 'id' | 'criado_em'>): Promise<DbUser> {
+    if ((user as any).perfil === 'admin') {
+      throw new Error(
+        'Violação de Isolamento de Dados: Usuários administradores devem ser gerenciados exclusivamente pelo adminRepository no banco administrativo.'
+      );
+    }
+
     const newUser: DbUser = {
       ...user,
       id: generateEntityId(`user-${user.perfil}`),

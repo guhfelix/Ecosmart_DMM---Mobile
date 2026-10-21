@@ -1,12 +1,16 @@
 import { PerfilUsuario, Usuario, ResetCodeResult, ResetPasswordResult } from '../models';
 import { getFirebaseAuth } from './firebaseConfig';
 import { firebaseService } from './firebaseService';
+import { securityService } from './securityService';
 
 export type RegisteredUser = {
   id: string;
   name: string;
   email: string;
-  password: string;
+  /** Senha legada opcional (nunca persistida em texto puro no AsyncStorage/Firestore) */
+  password?: string;
+  /** Hash seguro da senha para validação local/offline (A4-11) */
+  passwordHash?: string;
   perfil: PerfilUsuario;
   provider?: 'password' | 'google';
   telefone?: string;
@@ -25,14 +29,20 @@ export type RegisteredUser = {
   updatedAt?: string;
 };
 
-export const ADMIN_ACCESS_CODE = 'ADMIN2026';
+const IS_TEST_OR_DEV =
+  typeof process === 'undefined' ||
+  process.env?.NODE_ENV === 'test' ||
+  process.env?.NODE_ENV === 'development' ||
+  Boolean((globalThis as any).__DEV__);
 
-export const DEFAULT_USERS: Record<PerfilUsuario, RegisteredUser> = {
+const DEFAULT_DEMO_HASH = securityService.hashPassword('1234');
+
+const DEMO_USERS_DEFINITION: Record<PerfilUsuario, RegisteredUser> = {
   admin: {
     id: 'user-admin-1',
     name: 'João Gestor SEMATUR',
     email: 'joao@gmail.com',
-    password: '1234',
+    passwordHash: DEFAULT_DEMO_HASH,
     perfil: 'admin',
     telefone: '(65) 3223-5500',
     cep: '78200-000',
@@ -48,7 +58,7 @@ export const DEFAULT_USERS: Record<PerfilUsuario, RegisteredUser> = {
     id: 'user-cidadao-1',
     name: 'Maria Cidadã Pantaneira',
     email: 'maria@gmail.com',
-    password: '1234',
+    passwordHash: DEFAULT_DEMO_HASH,
     perfil: 'cidadao',
     telefone: '(65) 99988-1234',
     cep: '78200-050',
@@ -62,7 +72,7 @@ export const DEFAULT_USERS: Record<PerfilUsuario, RegisteredUser> = {
     id: 'user-coletor-1',
     name: 'Lucas Coletor COOPERCÁCERES',
     email: 'lucas@gmail.com',
-    password: '1234',
+    passwordHash: DEFAULT_DEMO_HASH,
     perfil: 'coletor',
     telefone: '(65) 99654-7890',
     cep: '78205-100',
@@ -76,13 +86,39 @@ export const DEFAULT_USERS: Record<PerfilUsuario, RegisteredUser> = {
   },
 };
 
-/** Administradores isolados padrão */
-export const ALL_DEFAULT_ADMINS: RegisteredUser[] = [DEFAULT_USERS.admin];
+export const DEFAULT_USERS: Record<PerfilUsuario, RegisteredUser> = DEMO_USERS_DEFINITION;
 
-/** Usuários comuns padrão (Cidadãos e Coletores) */
-export const ALL_DEFAULT_REGULAR_USERS: RegisteredUser[] = [DEFAULT_USERS.cidadao, DEFAULT_USERS.coletor];
+/** Administradores isolados padrão (restritos ao escopo de desenvolvimento/teste) */
+export const ALL_DEFAULT_ADMINS: RegisteredUser[] = IS_TEST_OR_DEV ? [DEFAULT_USERS.admin] : [];
 
-export const ALL_DEFAULT_USERS: RegisteredUser[] = Object.values(DEFAULT_USERS);
+/** Usuários comuns padrão (Cidadãos e Coletores - restritos ao escopo de desenvolvimento/teste) */
+export const ALL_DEFAULT_REGULAR_USERS: RegisteredUser[] = IS_TEST_OR_DEV
+  ? [DEFAULT_USERS.cidadao, DEFAULT_USERS.coletor]
+  : [];
+
+export const ALL_DEFAULT_USERS: RegisteredUser[] = IS_TEST_OR_DEV
+  ? Object.values(DEFAULT_USERS)
+  : [];
+
+/**
+ * Sanitiza registros de usuários antes de persistir no AsyncStorage,
+ * garantindo que nenhuma senha em texto simples seja salva localmente (A4-11).
+ */
+export function sanitizeUsersForStorage(users: RegisteredUser[]): RegisteredUser[] {
+  return users.map((u) => {
+    const rawPassword = u.password;
+    const isAlreadyHashed = rawPassword && rawPassword.startsWith('sha256_');
+    const computedHash =
+      u.passwordHash ||
+      (rawPassword ? (isAlreadyHashed ? rawPassword : securityService.hashPassword(rawPassword)) : undefined);
+
+    const { password: _omittedPassword, ...safeUser } = u;
+    return {
+      ...safeUser,
+      ...(computedHash ? { passwordHash: computedHash } : {}),
+    };
+  });
+}
 
 export function getRoleAccessErrorMessage(actualRole: PerfilUsuario): string {
   switch (actualRole) {
@@ -103,11 +139,12 @@ export function validateUserProfile(
   extraUsers: RegisteredUser[] = []
 ): { isValid: boolean; message?: string; user?: RegisteredUser } {
   const normalizedEmail = email.trim().toLowerCase();
-  
+
   // Isolamento estrito de validação
-  const candidatePool = expectedRole === 'admin'
-    ? [...extraUsers.filter((u) => u.perfil === 'admin'), ...ALL_DEFAULT_ADMINS]
-    : [...extraUsers.filter((u) => u.perfil !== 'admin'), ...ALL_DEFAULT_REGULAR_USERS];
+  const candidatePool =
+    expectedRole === 'admin'
+      ? [...extraUsers.filter((u) => u.perfil === 'admin'), ...ALL_DEFAULT_ADMINS]
+      : [...extraUsers.filter((u) => u.perfil !== 'admin'), ...ALL_DEFAULT_REGULAR_USERS];
 
   const foundUser = candidatePool.find(
     (u) => u.email.trim().toLowerCase() === normalizedEmail
@@ -133,20 +170,20 @@ export function authenticateUser(
   password: string,
   expectedRole: PerfilUsuario,
   registeredUsers: RegisteredUser[] = []
-): { success: boolean; message?: string; user?: Usuario } {
+): { success: boolean; message?: string; user?: Usuario; token?: string } {
   const normalizedEmail = email.trim().toLowerCase();
-  
+
   // Consulta estritamente a base isolada de acordo com o perfil
   let targetPool: RegisteredUser[];
   let opposingPool: RegisteredUser[];
 
   if (expectedRole === 'admin') {
     const adminCustom = registeredUsers.filter((u) => u.perfil === 'admin');
-    targetPool = adminCustom.length > 0 ? adminCustom : ALL_DEFAULT_ADMINS;
+    targetPool = [...adminCustom, ...ALL_DEFAULT_ADMINS];
     opposingPool = [...registeredUsers.filter((u) => u.perfil !== 'admin'), ...ALL_DEFAULT_REGULAR_USERS];
   } else {
     const regularCustom = registeredUsers.filter((u) => u.perfil !== 'admin');
-    targetPool = regularCustom.length > 0 ? regularCustom : ALL_DEFAULT_REGULAR_USERS;
+    targetPool = [...regularCustom, ...ALL_DEFAULT_REGULAR_USERS];
     opposingPool = [...registeredUsers.filter((u) => u.perfil === 'admin'), ...ALL_DEFAULT_ADMINS];
   }
 
@@ -169,7 +206,8 @@ export function authenticateUser(
     };
   }
 
-  if (foundUser.password !== password) {
+  const storedHashOrSecret = foundUser.passwordHash || foundUser.password || '';
+  if (!securityService.verifyPassword(password, storedHashOrSecret)) {
     return {
       success: false,
       message: 'Verifique o e-mail e a senha informados.',
@@ -207,7 +245,29 @@ export function authenticateUser(
   return {
     success: true,
     user: sessionUser,
+    token: securityService.generateSessionToken(sessionUser.id),
   };
+}
+
+/**
+ * Valida se o cadastro administrativo possui autorização via Custom Claim / token do servidor (A4-12).
+ * Não utiliza chave estática hardcoded no bundle do cliente.
+ */
+function hasValidAdminServerAuthorization(
+  claimOrToken?: string | { role?: string; perfil?: string }
+): boolean {
+  if (!claimOrToken) return false;
+  if (typeof claimOrToken === 'object') {
+    return securityService.canAccessDatabase(claimOrToken, 'ecosmart-admin-db');
+  }
+  const serverConfiguredToken =
+    typeof process !== 'undefined'
+      ? (process.env as Record<string, string | undefined>)?.ADMIN_SERVER_CLAIM_TOKEN
+      : undefined;
+  if (serverConfiguredToken && claimOrToken.trim() === serverConfiguredToken) {
+    return true;
+  }
+  return false;
 }
 
 export function registerUser(
@@ -217,7 +277,7 @@ export function registerUser(
   role: PerfilUsuario,
   accessCode?: string,
   existingUsers: RegisteredUser[] = []
-): { success: boolean; message?: string; user?: Usuario; updatedUsers?: RegisteredUser[] } {
+): { success: boolean; message?: string; user?: Usuario; updatedUsers?: RegisteredUser[]; token?: string } {
   const normalizedEmail = email.trim().toLowerCase();
   const trimmedName = name.trim();
 
@@ -229,10 +289,11 @@ export function registerUser(
   }
 
   if (role === 'admin') {
-    if (!accessCode || accessCode.trim() !== ADMIN_ACCESS_CODE) {
+    if (!hasValidAdminServerAuthorization(accessCode)) {
       return {
         success: false,
-        message: 'Código de Acesso Administrativo inválido. O cadastro de gestor requer a chave mestre.',
+        message:
+          'Cadastro de administrador não autorizado no cliente. A validação administrativa deve ocorrer via Custom Claims/servidor.',
       };
     }
   }
@@ -249,23 +310,29 @@ export function registerUser(
     };
   }
 
+  const nowIso = new Date().toISOString();
+  const passwordHash = securityService.hashPassword(password.trim());
+
   const newUser: RegisteredUser = {
     id: `user-${role}-${Date.now()}`,
     name: trimmedName,
     email: normalizedEmail,
-    password: password.trim(),
+    passwordHash,
     perfil: role,
     cidade: 'Cáceres - MT',
     cep: '78200-000',
     bairro: 'Centro',
-    bio: role === 'cidadao'
-      ? 'Compromissado com a reciclagem e a sustentabilidade no Pantanal.'
-      : role === 'coletor'
-      ? 'Atuação na coleta seletiva e apoio à reciclagem em Cáceres - MT.'
-      : 'Gestão e governança do sistema EcoSmart.',
+    createdAt: nowIso,
+    updatedAt: nowIso,
+    bio:
+      role === 'cidadao'
+        ? 'Compromissado com a reciclagem e a sustentabilidade no Pantanal.'
+        : role === 'coletor'
+        ? 'Atuação na coleta seletiva e apoio à reciclagem em Cáceres - MT.'
+        : 'Gestão e governança do sistema EcoSmart.',
   };
 
-  const updatedUsers = [newUser, ...existingUsers];
+  const updatedUsers = sanitizeUsersForStorage([newUser, ...existingUsers]);
 
   const sessionUser: Usuario = {
     id: newUser.id,
@@ -276,9 +343,11 @@ export function registerUser(
     bairro: newUser.bairro,
     cidade: newUser.cidade,
     bio: newUser.bio,
+    createdAt: newUser.createdAt,
+    updatedAt: newUser.updatedAt,
   };
 
-  // Salva no Firestore (direcionado ao banco isolado correspondente)
+  // Salva no Firestore sem qualquer campo de senha (direcionado ao banco isolado correspondente)
   try {
     if (sessionUser.perfil === 'admin') {
       firebaseService.saveAdminDocument(sessionUser);
@@ -293,6 +362,7 @@ export function registerUser(
     success: true,
     user: sessionUser,
     updatedUsers,
+    token: securityService.generateSessionToken(sessionUser.id),
   };
 }
 
@@ -339,7 +409,7 @@ export function requestPasswordReset(
 }
 
 /**
- * Redefine a senha do usuário após validação do código.
+ * Redefine a senha do usuário após validação do código, armazenando apenas o hash seguro (A4-11).
  */
 export function resetPassword(
   email: string,
@@ -350,7 +420,10 @@ export function resetPassword(
 ): ResetPasswordResult & { updatedUsers?: RegisteredUser[] } {
   const normalizedEmail = email.trim().toLowerCase();
 
-  if (!verificationCode || verificationCode.trim().toUpperCase() !== expectedCode.trim().toUpperCase()) {
+  if (
+    !verificationCode ||
+    verificationCode.trim().toUpperCase() !== expectedCode.trim().toUpperCase()
+  ) {
     return {
       success: false,
       message: 'Código de verificação incorreto ou expirado.',
@@ -373,13 +446,17 @@ export function resetPassword(
     return { success: false, message: 'Usuário não encontrado.' };
   }
 
+  const { password: _removedPlainPassword, ...restTarget } = targetUser;
   const updatedUser: RegisteredUser = {
-    ...targetUser,
-    password: newPassword.trim(),
+    ...restTarget,
+    passwordHash: securityService.hashPassword(newPassword.trim()),
+    updatedAt: new Date().toISOString(),
   };
 
-  const remainingCustomUsers = registeredUsers.filter((u) => u.email.trim().toLowerCase() !== normalizedEmail);
-  const updatedUsers = [updatedUser, ...remainingCustomUsers];
+  const remainingCustomUsers = registeredUsers.filter(
+    (u) => u.email.trim().toLowerCase() !== normalizedEmail
+  );
+  const updatedUsers = sanitizeUsersForStorage([updatedUser, ...remainingCustomUsers]);
 
   return {
     success: true,
@@ -389,7 +466,8 @@ export function resetPassword(
 }
 
 /**
- * Autentica ou cadastra o usuário através do provedor Google usando Firebase Auth.
+ * Autentica o usuário através do provedor Google usando Firebase Auth (A4-12).
+ * Não utiliza perfis mockados de fallback em caso de falha externa; propaga o erro real.
  */
 export async function signInWithGoogle(
   expectedRole: PerfilUsuario,
@@ -399,50 +477,40 @@ export async function signInWithGoogle(
   message?: string;
   user?: Usuario;
   updatedUsers?: RegisteredUser[];
+  token?: string;
 }> {
   try {
-    let googleUserEmail = '';
-    let googleUserName = '';
-    let googleUserId = '';
-
     const auth = getFirebaseAuth();
-    if (auth) {
-      try {
-        const { GoogleAuthProvider, signInWithPopup } = require('firebase/auth');
-        const provider = new GoogleAuthProvider();
-        provider.addScope('profile');
-        provider.addScope('email');
-        const authResult = await signInWithPopup(auth, provider);
-        if (authResult && authResult.user) {
-          googleUserEmail = authResult.user.email || '';
-          googleUserName = authResult.user.displayName || '';
-          googleUserId = authResult.user.uid;
-        }
-      } catch (authError) {
-        // Mecanismo de contingência local para ambiente móvel
-      }
+    if (!auth) {
+      return {
+        success: false,
+        message: 'Provedor de autenticação Google (Firebase Auth) indisponível ou não configurado.',
+      };
     }
 
-    if (!googleUserEmail) {
-      switch (expectedRole) {
-        case 'admin':
-          googleUserEmail = 'joao.google@gmail.com';
-          googleUserName = 'João Gestor (Google)';
-          googleUserId = 'user-google-admin-1';
-          break;
-        case 'coletor':
-          googleUserEmail = 'lucas.google@gmail.com';
-          googleUserName = 'Lucas Coletor (Google)';
-          googleUserId = 'user-google-coletor-1';
-          break;
-        case 'cidadao':
-        default:
-          googleUserEmail = 'maria.google@gmail.com';
-          googleUserName = 'Maria Pantaneira (Google)';
-          googleUserId = 'user-google-cidadao-1';
-          break;
-      }
+    const { GoogleAuthProvider, signInWithPopup } = require('firebase/auth');
+    if (typeof signInWithPopup !== 'function') {
+      return {
+        success: false,
+        message: 'Autenticação Google via popup não disponível neste ambiente.',
+      };
     }
+
+    const provider = new GoogleAuthProvider();
+    provider.addScope('profile');
+    provider.addScope('email');
+
+    const authResult = await signInWithPopup(auth, provider);
+    if (!authResult || !authResult.user || !authResult.user.email) {
+      return {
+        success: false,
+        message: 'Não foi possível obter os dados da conta Google autenticada.',
+      };
+    }
+
+    const googleUserEmail = authResult.user.email;
+    const googleUserName = authResult.user.displayName || 'Usuário Google';
+    const googleUserId = authResult.user.uid;
 
     const normalizedEmail = googleUserEmail.trim().toLowerCase();
     const allUsers = [...registeredUsers, ...ALL_DEFAULT_USERS];
@@ -457,8 +525,24 @@ export async function signInWithGoogle(
       };
     }
 
+    if (expectedRole === 'admin') {
+      let hasAdminClaim = existingUser?.perfil === 'admin';
+      if (!hasAdminClaim && typeof authResult.user.getIdTokenResult === 'function') {
+        const tokenResult = await authResult.user.getIdTokenResult();
+        hasAdminClaim =
+          tokenResult?.claims?.role === 'admin' || tokenResult?.claims?.perfil === 'admin';
+      }
+      if (!hasAdminClaim) {
+        return {
+          success: false,
+          message: 'Acesso negado: Conta Google não possui Custom Claim de administrador.',
+        };
+      }
+    }
+
     let sessionUser: Usuario;
-    let updatedUsers = registeredUsers;
+    let updatedUsers = sanitizeUsersForStorage(registeredUsers);
+    const nowIso = new Date().toISOString();
 
     if (existingUser) {
       sessionUser = {
@@ -473,19 +557,21 @@ export async function signInWithGoogle(
         bairro: existingUser.bairro,
         cidade: existingUser.cidade,
         bio: existingUser.bio,
+        updatedAt: nowIso,
       };
     } else {
       const newUser: RegisteredUser = {
         id: googleUserId || `user-google-${expectedRole}-${Date.now()}`,
-        name: googleUserName || 'Usuário Google',
+        name: googleUserName,
         email: normalizedEmail,
-        password: '',
         perfil: expectedRole,
         provider: 'google',
         cep: '78200-000',
         cidade: 'Cáceres - MT',
         bairro: 'Centro',
-        bio: 'Usuário cadastrado com a Conta Google.',
+        bio: 'Usuário autenticado com a Conta Google.',
+        createdAt: nowIso,
+        updatedAt: nowIso,
       };
 
       sessionUser = {
@@ -497,9 +583,11 @@ export async function signInWithGoogle(
         cidade: newUser.cidade,
         bairro: newUser.bairro,
         bio: newUser.bio,
+        createdAt: nowIso,
+        updatedAt: nowIso,
       };
 
-      updatedUsers = [newUser, ...registeredUsers];
+      updatedUsers = sanitizeUsersForStorage([newUser, ...registeredUsers]);
     }
 
     try {
@@ -516,6 +604,7 @@ export async function signInWithGoogle(
       success: true,
       user: sessionUser,
       updatedUsers,
+      token: securityService.generateSessionToken(sessionUser.id),
     };
   } catch (error: any) {
     return {

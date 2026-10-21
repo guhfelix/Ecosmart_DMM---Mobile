@@ -99,20 +99,6 @@ firebase deploy --only firestore:rules
 firebase deploy --only firestore:indexes
 ```
 
-### 4.3. Deploy do Firebase Functions (se aplicável)
-```bash
-cd functions
-npm install
-npm run build
-cd ..
-firebase deploy --only functions
-```
-
-### 4.4. Deploy do Firebase Data Connect (se aplicável)
-```bash
-firebase deploy --only dataconnect
-```
-
 ---
 
 ## 5. Execução do Script de Carga e Migração (Seeding Oficial)
@@ -178,6 +164,6 @@ npm run test:communication
 # 2. Executar checagem estática de tipos TypeScript em todos os módulos
 npm run typecheck:all
 
-# 3. Executar todos os testes automatizados (77 suítes / 425 testes)
+# 3. Executar todos os testes automatizados (77 suítes / 454 testes)
 npm run test:all
 ```

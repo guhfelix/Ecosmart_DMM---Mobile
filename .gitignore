@@ -28,10 +28,12 @@ ui-debug.log*
 
 # Testes e Cobertura
 coverage/
+**/coverage/
 jest-results.json
 
-# Sistema Operacional
+# Sistema Operacional e Temporários
 .DS_Store
 Thumbs.db
 *.tmp
 *.bak
+*.log

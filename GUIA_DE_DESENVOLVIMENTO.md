@@ -32,9 +32,9 @@ Ecosmart_DMM---Mobile/
 ```
 
 ### Perfis e Responsabilidades dos Apps (`frontend/`):
-1. **EcoSmart Cidadão (`frontend/ecosmart-cidadao`):** Login/cadastro de cidadão (com Google via Firebase Auth e E-mail/Senha), registrar descartes rápidos (com tipo, quantidade, CEP, endereço e GPS simplificado), gravação direta no Cloud Firestore (`saveCitizenDiscard`), histórico com filtros e busca textual, consulta de dicas e pontos de coleta com rotas, auto-sync, notificações e **Perfil do Cidadão (dados cadastrais e resumo de descartes)**.
-2. **EcoSmart Empresa/Catador (`frontend/ecosmart-coletor`):** Login/cadastro de coletor (com Google via Firebase Auth e E-mail/Senha), listar descartes disponíveis com cálculo de distâncias (GPS), ouvintes em tempo real (`onSnapshot`), filtros por resíduo e proximidade, botão direto de rota GPS e confirmação de coleta em 1 toque, auto-sync, notificações e **Perfil do Coletor com Dados Operacionais (veículo, capacidade de carga e coletas realizadas)**.
-3. **EcoSmart Admin (`frontend/ecosmart-admin`):** Login restrito de administrador (Google / Chave Mestre `ADMIN2026`), CRUDs completos de resíduos, pontos de coleta e dicas com busca em tempo real, painel de registros gerais com exportação de relatórios ESG em CSV, auto-sync, notificações e **Perfil de Gestor com Governança do Sistema (taxa de reciclagem, volume de entidades cadastradas, cargo e departamento)**.
+1. **EcoSmart Cidadão (`frontend/ecosmart-cidadao`):** Login/cadastro de cidadão (com Google via Firebase Auth e E-mail/Senha com hash seguro), registrar e editar descartes (com tipo, quantidade numérica + unidade, CEP, endereço e coordenadas de referência do bairro), gravação direta no Cloud Firestore (`saveCitizenDiscard`), fila offline persistente (`outboxQueue`) e tombstones (`deletedIds`), histórico com filtros e busca textual, consulta de dicas e pontos de coleta com rotas, auto-sync, notificações e **Perfil do Cidadão (dados cadastrais e resumo de descartes)**.
+2. **EcoSmart Empresa/Catador (`frontend/ecosmart-coletor`):** Login/cadastro de coletor (com Google via Firebase Auth e E-mail/Senha), listar descartes disponíveis com cálculo de distâncias (Haversine), ouvintes em tempo real (`onSnapshot` e SSE), filtros por resíduo e proximidade, botão direto de rota GPS e confirmação de coleta em 1 toque, auto-sync, notificações e **Perfil do Coletor com Dados Operacionais (veículo, capacidade de carga e coletas realizadas)**.
+3. **EcoSmart Admin (`frontend/ecosmart-admin`):** Login restrito de administrador (Google / E-mail com validação de Custom Claims e token de servidor), CRUDs completos de resíduos, pontos de coleta e dicas com busca em tempo real, painel de registros gerais com exportação de relatórios ESG em CSV, auto-sync, notificações e **Perfil de Gestor com Governança do Sistema (taxa de reciclagem, volume de entidades cadastradas, cargo e departamento)**.
 
 ---
 
@@ -77,10 +77,10 @@ flowchart TD
     AdminUI -->|3. Listener onSnapshot| FirestoreDB
 ```
 
-### 3.1. Servidor Backend Centralizado (API REST & WebSocket)
+### 3.1. Servidor Backend Centralizado (API REST & SSE)
 * **Localização:** [`scripts/sync-server.js`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre/DESENVOLVIMENTO%20DE%20SISTEMAS%20PARA%20DISPOSITIVOS%20M%C3%93VEIS/Ecosmart_DMM---Mobile/scripts/sync-server.js) e [`backend/src/server.ts`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre/DESENVOLVIMENTO%20DE%20SISTEMAS%20PARA%20DISPOSITIVOS%20M%C3%93VEIS/Ecosmart_DMM---Mobile/backend/src/server.ts).
 * **Porta Padrão:** `3333` (`http://localhost:3333`).
-* **Endpoints:** `GET /api/health`, `GET /api/discards`, `POST /api/discards`, `POST /api/discards/:id/collect`, `DELETE /api/discards/:id`, `POST /api/users`.
+* **Endpoints:** `GET /api/health`, `GET /api/events`, `GET /api/discards`, `POST /api/discards`, `PUT /api/discards/:id`, `POST /api/discards/:id/collect`, `DELETE /api/discards/:id`, `GET/POST /api/users`.
 
 ### 3.2. Banco de Dados em Tempo Real (Firebase Cloud Firestore - Listeners Nativos)
 * **Ouvintes em Tempo Real (`onSnapshot`):** Implementados em [`firebaseService.ts`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre/DESENVOLVIMENTO%20DE%20SISTEMAS%20PARA%20DISPOSITIVOS%20M%C3%93VEIS/Ecosmart_DMM---Mobile/shared/services/firebaseService.ts).
@@ -97,7 +97,7 @@ flowchart TD
 
 - [x] **4.1. Validação Estrita de Perfil no Login (Controle de Acesso RBAC):** Cada app valida obrigatoriamente a propriedade `perfil` (`cidadao` | `coletor` | `admin`) do usuário, bloqueando acessos cruzados com avisos claros.
 - [x] **4.2. Autenticação Integrada com Google (Firebase Auth):** Botão **"Continuar com o Google"** presente nos 3 aplicativos com persistência automática de perfil na coleção `usuarios` do Firestore.
-- [x] **4.3. Proteção de Cadastro por Tipo de Aplicativo:** App Cidadão gera `cidadao`, App Coletor gera `coletor`, e App Admin exige o **Código de Acesso Administrativo** (`ADMIN2026`).
+- [x] **4.3. Proteção de Cadastro por Tipo de Aplicativo:** App Cidadão gera `cidadao`, App Coletor gera `coletor`, e App Admin valida privilégios administrativos por Custom Claims / token de servidor (`validateAdminRegistrationAccess`), sem expor chaves estáticas no bundle cliente. Senhas são protegidas com hash e salt criptográfico (`securityService.ts`).
 - [x] **4.4. Isolamento de Sessão e Storage no `AsyncStorage`:** Namespaces isolados por aplicativo: `@ecosmart_cidadao_*`, `@ecosmart_coletor_*`, `@ecosmart_admin_*`.
 - [x] **4.5. Centralização e Recuperação de Senha em `shared/`:** `authService.ts` com autenticação, cadastro, `signInWithGoogle`, `requestPasswordReset` e `resetPassword`.
 - [x] **4.6. Isolamento Arquitetural no Cloud Firestore (`(default)`):** Separação estrita em nível de coleções raiz. Administradores (`user-admin-1`) residem exclusivamente em `/admins`, bloqueados para leitura/escrita de usuários comuns via Security Rules. A coleção `/usuarios` abriga apenas cidadãos e coletores.
@@ -151,6 +151,6 @@ Scripts com duplo clique (.bat) para Windows com auto-inicialização do servido
 
 ## 🧪 9. Qualidade, Testes Automatizados e Cobertura (Etapa Obrigatória)
 
-* **77 suítes de testes** e **425 testes automatizados** (100% de aprovação).
+* **77 suítes de testes** e **454 testes automatizados** (100% de aprovação).
 * **0 erros de tipagem estática** TypeScript (`npm run typecheck:all`).
 * **Diagnóstico de Comunicação:** `npm run test:communication`.

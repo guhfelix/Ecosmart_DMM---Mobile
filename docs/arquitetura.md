@@ -110,25 +110,25 @@ flowchart TD
 * Quando o Coletor conclui um recolhimento, o evento `DISCARD_COLLECTED` atualiza o status na tela do Cidadão e gera notificação imediata.
 
 ### 2. Servidor Central Backend (Node.js REST na Porta 3333)
-* Endpoint de mutação rápida HTTP (`GET /api/discards`, `POST /api/discards`, `POST /api/discards/:id/collect`, `DELETE /api/discards/:id`, `GET/POST /api/users`).
+* Endpoint de mutação rápida HTTP (`GET /api/discards`, `POST /api/discards`, `PUT /api/discards/:id`, `POST /api/discards/:id/collect`, `DELETE /api/discards/:id`, `GET/POST /api/users`, `GET /api/events`).
 * Auto-iniciado automaticamente em segundo plano ao executar qualquer aplicativo pelo script `ensure-server.js`.
-* Persistência em arquivo JSON local (`database/data/ecosmart-live-db.json`) com garantia de integridade durante o desenvolvimento.
+* Persistência atômica em arquivo JSON local (`database/data/ecosmart-live-db.json`) com garantia de integridade e validação de autorização/proprietário (`401`/`403`).
 
 ### 3. Banco de Dados em Tempo Real (Firebase Cloud Firestore na Instância (default))
 * **Isolamento de Dados do Administrador:** Coleções raiz `/admins/{adminId}` e `/admin_logs/{logId}` dedicadas exclusivamente ao perfil gestor, com acesso restrito a administradores via `firestore.rules`.
 * **Coleção Operacional de Usuários:** `/usuarios/{userId}` exclusiva para Cidadãos e Coletores (administradores nunca residem em `usuarios`).
 * Listeners nativos **`onSnapshot`** em `firebaseService.ts` para sincronização instantânea sem necessidade de recarregamento de tela.
 * Gravação normalizada na coleção `descartes` com a função `saveCitizenDiscard()`.
-* Modelo resiliente: opera com cache local em memória e contingência reativa ao reconectar.
+* Modelo resiliente: opera com fila de saída persistente (`outboxQueue`), tombstones (`deletedIds`) e reconciliação inteligente por `updatedAt` (Last-Write-Wins).
 
 ### 4. Persistência Local Isolada por Aplicativo e Usuário (`AsyncStorage`)
 * Cada aplicativo mantém seus dados locais sob namespace próprio (`@ecosmart_cidadao_*`, `@ecosmart_coletor_*`, `@ecosmart_admin_*`).
-* O aplicativo Cidadão persiste os descartes com chave individualizada por usuário (`@ecosmart_cidadao_discards_${user.id}`), garantindo isolamento total e impedindo vazamento de dados entre diferentes contas cadastradas no mesmo aparelho.
+* O aplicativo Cidadão persiste os descartes, a fila offline (`outbox`) e os registros excluídos (`deleted`) com chaves individualizadas por usuário (`@ecosmart_cidadao_discards_${user.id}`), garantindo isolamento total e impedindo vazamento de dados entre diferentes contas cadastradas no mesmo aparelho.
 
 ---
 
 ## 🧪 Qualidade & Testes
 
-* **77 suítes de testes** e **425 testes automatizados** cobrindo telas, componentes, hooks, utilitários, serviços e isolamento estrito de dados (100% de aprovação).
+* **77 suítes de testes** e **454 testes automatizados** cobrindo telas, componentes, hooks, utilitários, serviços e isolamento estrito de dados (100% de aprovação).
 * **0 erros de tipagem estática** TypeScript (`npm run typecheck:all`).
 * **Diagnóstico de Comunicação:** Script automatizado de teste de rotas REST, Firebase e Storage (`npm run test:communication`).

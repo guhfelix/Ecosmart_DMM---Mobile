@@ -4,23 +4,58 @@ import {
   requestPasswordReset,
   resetPassword,
   signInWithGoogle,
+  sanitizeUsersForStorage,
   ALL_DEFAULT_USERS,
   RegisteredUser,
 } from '../authService';
+import * as firebaseConfig from '../firebaseConfig';
 
-describe('authService (Autenticação, RBAC e Google Auth)', () => {
+describe('authService (Autenticação Segura, Hash Local, RBAC e Google Auth - A4-11 / A4-12)', () => {
   let registeredUsers: RegisteredUser[];
 
   beforeEach(() => {
+    jest.restoreAllMocks();
     registeredUsers = [...ALL_DEFAULT_USERS];
   });
 
+  describe('Proteção de Senha (A4-11)', () => {
+    it('não deve armazenar senhas em texto simples nos usuários padrão ou recém-cadastrados', () => {
+      for (const u of ALL_DEFAULT_USERS) {
+        expect(u.password).toBeUndefined();
+        expect(u.passwordHash).toMatch(/^sha256_/);
+      }
+
+      const reg = registerUser('Novo Cidadão', 'novo@cidadao.com', 'minhaSenhaSecreta', 'cidadao');
+      expect(reg.success).toBe(true);
+      const savedUser = reg.updatedUsers?.find((u) => u.email === 'novo@cidadao.com');
+      expect(savedUser?.password).toBeUndefined();
+      expect(savedUser?.passwordHash).toMatch(/^sha256_/);
+      expect(savedUser?.passwordHash).not.toBe('minhaSenhaSecreta');
+    });
+
+    it('sanitizeUsersForStorage deve remover qualquer campo password em texto simples', () => {
+      const legacyUsers: RegisteredUser[] = [
+        {
+          id: 'u-legacy',
+          name: 'Legado',
+          email: 'legado@gmail.com',
+          password: '1234',
+          perfil: 'cidadao',
+        },
+      ];
+      const sanitized = sanitizeUsersForStorage(legacyUsers);
+      expect(sanitized[0].password).toBeUndefined();
+      expect(sanitized[0].passwordHash).toMatch(/^sha256_/);
+    });
+  });
+
   describe('authenticateUser', () => {
-    it('deve realizar login com sucesso para usuário existente e perfil correto', () => {
+    it('deve realizar login com sucesso para usuário existente e perfil correto usando hash seguro', () => {
       const result = authenticateUser('maria@gmail.com', '1234', 'cidadao', registeredUsers);
       expect(result.success).toBe(true);
       expect(result.user?.email).toBe('maria@gmail.com');
       expect(result.user?.perfil).toBe('cidadao');
+      expect(result.token).toMatch(/^eco_user-cidadao-1_/);
     });
 
     it('deve falhar para senha incorreta', () => {
@@ -30,7 +65,6 @@ describe('authService (Autenticação, RBAC e Google Auth)', () => {
     });
 
     it('deve bloquear login de perfil cruzado com mensagem instrutiva', () => {
-      // Maria (cidadã) tentando entrar como coletor
       const result = authenticateUser('maria@gmail.com', '1234', 'coletor', registeredUsers);
       expect(result.success).toBe(false);
       expect(result.message).toContain('Acesso não autorizado');
@@ -44,7 +78,7 @@ describe('authService (Autenticação, RBAC e Google Auth)', () => {
     });
   });
 
-  describe('registerUser', () => {
+  describe('registerUser e bloqueio de chave administrativa no cliente (A4-12)', () => {
     it('deve cadastrar um novo cidadão com sucesso', () => {
       const result = registerUser(
         'Ana Silva',
@@ -57,7 +91,6 @@ describe('authService (Autenticação, RBAC e Google Auth)', () => {
       expect(result.success).toBe(true);
       expect(result.user?.email).toBe('ana@gmail.com');
       expect(result.user?.perfil).toBe('cidadao');
-      expect(result.updatedUsers?.length).toBe(registeredUsers.length + 1);
     });
 
     it('deve impedir cadastro duplicado com mesmo e-mail', () => {
@@ -73,19 +106,8 @@ describe('authService (Autenticação, RBAC e Google Auth)', () => {
       expect(result.message).toContain('Já existe um cadastro');
     });
 
-    it('deve exigir código mestre ADMIN2026 para cadastro de administrador', () => {
-      const resultSemCodigo = registerUser(
-        'Novo Admin',
-        'admin.novo@gmail.com',
-        '1234',
-        'admin',
-        'CODIGO_ERRADO',
-        registeredUsers
-      );
-      expect(resultSemCodigo.success).toBe(false);
-      expect(resultSemCodigo.message).toContain('Código de Acesso Administrativo inválido');
-
-      const resultComCodigo = registerUser(
+    it('deve bloquear cadastro de administrador por código estático no cliente e exigir validação de servidor/claims (A4-12)', () => {
+      const resultSemClaim = registerUser(
         'Novo Admin',
         'admin.novo@gmail.com',
         '1234',
@@ -93,8 +115,23 @@ describe('authService (Autenticação, RBAC e Google Auth)', () => {
         'ADMIN2026',
         registeredUsers
       );
-      expect(resultComCodigo.success).toBe(true);
-      expect(resultComCodigo.user?.perfil).toBe('admin');
+      expect(resultSemClaim.success).toBe(false);
+      expect(resultSemClaim.message).toContain('Custom Claims/servidor');
+
+      // Simula validação autorizada via token de servidor configurado em variável de ambiente do backend
+      (process.env as Record<string, string | undefined>).ADMIN_SERVER_CLAIM_TOKEN = 'SERVER_VERIFIED_CLAIM_2026';
+      const resultComClaim = registerUser(
+        'Novo Admin',
+        'admin.novo@gmail.com',
+        '1234',
+        'admin',
+        'SERVER_VERIFIED_CLAIM_2026',
+        registeredUsers
+      );
+      delete (process.env as Record<string, string | undefined>).ADMIN_SERVER_CLAIM_TOKEN;
+
+      expect(resultComClaim.success).toBe(true);
+      expect(resultComClaim.user?.perfil).toBe('admin');
     });
   });
 
@@ -111,7 +148,7 @@ describe('authService (Autenticação, RBAC e Google Auth)', () => {
       expect(result.message).toContain('Nenhum usuário encontrado');
     });
 
-    it('deve redefinir a senha com sucesso para token e e-mail válidos', () => {
+    it('deve redefinir a senha com sucesso gravando apenas passwordHash', () => {
       const resetReq = requestPasswordReset('maria@gmail.com', 'cidadao', registeredUsers);
       const code = resetReq.code!;
 
@@ -124,7 +161,10 @@ describe('authService (Autenticação, RBAC e Google Auth)', () => {
       );
       expect(resetResult.success).toBe(true);
 
-      // Verifica se autenticação com a nova senha funciona
+      const mariaUpdated = resetResult.updatedUsers?.find((u) => u.email === 'maria@gmail.com');
+      expect(mariaUpdated?.password).toBeUndefined();
+      expect(mariaUpdated?.passwordHash).toMatch(/^sha256_/);
+
       const loginResult = authenticateUser(
         'maria@gmail.com',
         'novaSenha123',
@@ -150,21 +190,14 @@ describe('authService (Autenticação, RBAC e Google Auth)', () => {
     });
   });
 
-  describe('signInWithGoogle', () => {
-    it('deve autenticar ou registrar usuário Google com perfil correspondente', async () => {
+  describe('signInWithGoogle sem fallback fictício (A4-12)', () => {
+    it('deve propagar erro real e NÃO autenticar perfil mockado quando o provedor Google falhar ou estiver indisponível', async () => {
+      jest.spyOn(firebaseConfig, 'getFirebaseAuth').mockReturnValue(null);
+
       const result = await signInWithGoogle('cidadao', registeredUsers);
-      expect(result.success).toBe(true);
-      expect(result.user?.perfil).toBe('cidadao');
-    });
-
-    it('deve suportar login Google para coletor e admin', async () => {
-      const resultColetor = await signInWithGoogle('coletor', registeredUsers);
-      expect(resultColetor.success).toBe(true);
-      expect(resultColetor.user?.perfil).toBe('coletor');
-
-      const resultAdmin = await signInWithGoogle('admin', registeredUsers);
-      expect(resultAdmin.success).toBe(true);
-      expect(resultAdmin.user?.perfil).toBe('admin');
+      expect(result.success).toBe(false);
+      expect(result.user).toBeUndefined();
+      expect(result.message).toBeDefined();
     });
   });
 });

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PrimaryButton } from '../components/PrimaryButton';
@@ -7,18 +7,45 @@ import { StatusBadge } from '../components/StatusBadge';
 import type { DiscardItem } from '../models';
 import { colors } from '../theme/colors';
 import { radius, spacing } from '../theme/layout';
+import { validationUtils } from '../utils/validationUtils';
 
 type Props = {
   item: DiscardItem;
-  onDelete?: (id: string) => void;
+  onEdit?: (item: DiscardItem) => void;
+  onDelete?: (id: string) => void | Promise<void>;
   onBack: () => void;
 };
 
-export function DiscardDetailsScreen({ item, onDelete, onBack }: Props) {
+export function DiscardDetailsScreen({ item, onEdit, onDelete, onBack }: Props) {
+  const [deleting, setDeleting] = useState(false);
+  const isDeletingRef = useRef(false);
+
   const isCollected = item.status === 'Coletado';
-  const isOffline = item.status === 'Pendente (Offline)' || item.offline;
+  const isOffline =
+    item.status === 'Pendente (Offline)' || Boolean(item.offline || item.syncPending);
+
+  const formattedQuantity = validationUtils.formatQuantityWithUnit(
+    item.quantity,
+    item.unit
+  );
+
+  const executeDelete = async () => {
+    if (deleting || isDeletingRef.current || !onDelete) return;
+    isDeletingRef.current = true;
+    setDeleting(true);
+    try {
+      const res = onDelete(item.id);
+      if (res && typeof (res as Promise<void>).then === 'function') {
+        await res;
+      }
+    } finally {
+      isDeletingRef.current = false;
+      setDeleting(false);
+    }
+  };
 
   const confirmDelete = () => {
+    if (deleting || isDeletingRef.current) return;
     Alert.alert(
       'Excluir descarte?',
       'Tem certeza que deseja excluir este registro?',
@@ -27,7 +54,9 @@ export function DiscardDetailsScreen({ item, onDelete, onBack }: Props) {
         {
           text: 'Excluir',
           style: 'destructive',
-          onPress: () => onDelete?.(item.id),
+          onPress: () => {
+            executeDelete();
+          },
         },
       ]
     );
@@ -51,9 +80,19 @@ export function DiscardDetailsScreen({ item, onDelete, onBack }: Props) {
             />
           </View>
 
+          <InfoRow label="ID do Registro" value={item.id} />
           <InfoRow label="Categoria" value={item.type} />
-          <InfoRow label="Quantidade" value={item.quantity} />
+          <InfoRow label="Quantidade" value={formattedQuantity} />
+          {item.unit ? <InfoRow label="Unidade" value={item.unit} /> : null}
           <InfoRow label="Data" value={item.date} />
+          <InfoRow
+            label="Sincronização"
+            value={
+              isOffline
+                ? 'Salvo localmente (offline)'
+                : 'Sincronizado na nuvem'
+            }
+          />
           <InfoRow label="Status" value={item.status} />
           <InfoRow label="CEP" value={item.cep} />
           <InfoRow label="Endereço" value={item.address} />
@@ -70,10 +109,24 @@ export function DiscardDetailsScreen({ item, onDelete, onBack }: Props) {
 
           <InfoRow label="Observação" value={item.observation} multiline />
 
+          {onEdit && !isCollected ? (
+            <PrimaryButton
+              testID="edit-discard-button"
+              title="Editar"
+              variant="secondary"
+              disabled={deleting}
+              onPress={() => onEdit(item)}
+              style={styles.editButton}
+            />
+          ) : null}
+
           {onDelete ? (
             <PrimaryButton
+              testID="delete-discard-button"
               title="Excluir descarte"
               variant="danger"
+              loading={deleting}
+              disabled={deleting}
               onPress={confirmDelete}
               style={styles.deleteButton}
             />
@@ -153,7 +206,10 @@ const styles = StyleSheet.create({
   infoValueMultiline: {
     color: colors.textSecondary,
   },
-  deleteButton: {
+  editButton: {
     marginTop: spacing.md,
+  },
+  deleteButton: {
+    marginTop: spacing.sm,
   },
 });

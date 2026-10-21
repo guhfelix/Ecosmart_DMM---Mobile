@@ -80,7 +80,7 @@ describe('AuthScreen Admin', () => {
     );
   });
 
-  it('deve impedir cadastro de admin se o Código de Acesso não for informado ou for inválido', () => {
+  it('deve impedir cadastro de admin com chave estática no cliente sem validação de servidor/claims (A4-12)', () => {
     const onLoginSuccess = jest.fn();
     const onRegisterSuccess = jest.fn();
 
@@ -99,11 +99,12 @@ describe('AuthScreen Admin', () => {
     expect(onRegisterSuccess).not.toHaveBeenCalled();
     expect(Alert.alert).toHaveBeenCalledWith(
       'Erro no cadastro',
-      expect.stringContaining('Código de Acesso Administrativo inválido')
+      expect.stringContaining('Custom Claims/servidor')
     );
   });
 
-  it('deve permitir cadastro de admin com Código de Acesso válido (ADMIN2026)', () => {
+  it('deve permitir cadastro de admin apenas quando validado por claim token do servidor (A4-12)', () => {
+    (process.env as Record<string, string | undefined>).ADMIN_SERVER_CLAIM_TOKEN = 'CLAIM_SERVER_TOKEN_OK';
     const onLoginSuccess = jest.fn();
     const onRegisterSuccess = jest.fn();
 
@@ -116,8 +117,10 @@ describe('AuthScreen Admin', () => {
     fireEvent.changeText(getByPlaceholderText('Seu nome'), 'Carlos Admin');
     fireEvent.changeText(getByPlaceholderText('email@exemplo.com'), 'carlos@admin.com');
     fireEvent.changeText(getByPlaceholderText('Sua senha'), 'senha123');
-    fireEvent.changeText(getByTestId('access-code-input'), 'ADMIN2026');
+    fireEvent.changeText(getByTestId('access-code-input'), 'CLAIM_SERVER_TOKEN_OK');
     fireEvent.press(getByTestId('submit-button'));
+
+    delete (process.env as Record<string, string | undefined>).ADMIN_SERVER_CLAIM_TOKEN;
 
     expect(onRegisterSuccess).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -141,7 +144,7 @@ describe('AuthScreen Admin', () => {
     expect(getByText('🔑 Recuperação de Senha Admin')).toBeTruthy();
   });
 
-  it('deve realizar login com Google através do Firebase Auth', async () => {
+  it('deve bloquear login fictício com Google quando o provedor externo falhar (A4-12)', async () => {
     const onLoginSuccess = jest.fn();
     const onRegisterSuccess = jest.fn();
 
@@ -154,10 +157,7 @@ describe('AuthScreen Admin', () => {
       fireEvent.press(getByTestId('google-login-button'));
     });
 
-    expect(onLoginSuccess).toHaveBeenCalledWith(
-      expect.objectContaining({
-        perfil: 'admin',
-      })
-    );
+    expect(onLoginSuccess).not.toHaveBeenCalled();
+    expect(Alert.alert).toHaveBeenCalled();
   });
 });

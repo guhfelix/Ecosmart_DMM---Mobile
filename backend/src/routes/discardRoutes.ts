@@ -6,6 +6,8 @@ import { discardController } from '../controllers/discardController';
  * - GET /api/discards/available?type=Plastico
  * - GET /api/discards/collected
  * - POST /api/discards
+ * - PUT /api/discards/:id
+ * - DELETE /api/discards/:id
  * - PATCH /api/discards/:id/collect
  */
 export const discardRoutes = {
@@ -32,6 +34,23 @@ export const discardRoutes = {
     longitude?: number;
   }) => {
     return discardController.create(body);
+  },
+  update: async (
+    id: string,
+    body: {
+      tipoResiduo?: string;
+      quantidade?: string;
+      endereco?: string;
+      bairro?: string;
+      observacao?: string;
+      latitude?: number;
+      longitude?: number;
+    }
+  ) => {
+    return discardController.update(id, body);
+  },
+  delete: async (id: string) => {
+    return discardController.delete(id);
   },
   markAsCollected: async (id: string, coletorId?: string) => {
     return discardController.markAsCollected(id, coletorId);

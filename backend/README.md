@@ -35,21 +35,23 @@ backend/
 | Método | Endpoint | Controlador / Função | Descrição |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/health` | `sync-server.js` | Verificação de integridade e latência do servidor. |
-| `GET` | `/api/discards` | `discardController.listAvailable` | Listagem consolidada de descartes para coletores e gestores. |
-| `POST` | `/api/discards` | `discardController.create` | Criação de novo descarte cadastrado pelo Cidadão. |
+| `GET` | `/api/events` | `sync-server.js` | Stream Server-Sent Events (SSE) para sincronização em tempo real. |
+| `GET` | `/api/discards` | `discardController.listAvailable` | Listagem consolidada de descartes (suporta paginação `limit`/`offset`). |
+| `POST` | `/api/discards` | `discardController.create` | Criação de novo descarte cadastrado pelo Cidadão (requer autenticação). |
+| `PUT` / `PATCH` | `/api/discards/:id` | `discardController.update` | Edição de descarte existente preservando o `id` original (validação de proprietário/admin). |
 | `POST` / `PATCH` | `/api/discards/:id/collect` | `discardController.markAsCollected` | Baixa e confirmação de coleta realizada por Coletor/Empresa. |
-| `DELETE` | `/api/discards/:id` | `crossAppSync.deleteDiscard` | Cancelamento e exclusão de registro de descarte. |
-| `GET` | `/api/users` | `sync-server.js` | Consulta aos usuários cadastrados no ecossistema. |
-| `POST` | `/api/users` | `sync-server.js` | Sincronização e cadastro de usuários e perfis. |
+| `DELETE` | `/api/discards/:id` | `discardController.delete` | Cancelamento e exclusão de registro de descarte (validação de proprietário/admin). |
+| `GET` | `/api/users` | `sync-server.js` | Consulta aos usuários cadastrados no ecossistema (sem exposição de senhas). |
+| `POST` | `/api/users` | `sync-server.js` | Sincronização e cadastro de usuários e perfis (validação de token/propriedade). |
 
 ---
 
 ## 🔐 Controle de Acesso Baseado em Papéis (RBAC)
 
-O backend valida estritamente a identidade de cada perfil de acesso:
-- **Cidadão (`cidadao`):** Acesso restrito a cadastro e consulta de seus próprios descartes, pontos de coleta e dicas.
+O backend valida estritamente a identidade e autorização (`Authorization: Bearer`, `X-User-Id`, `X-User-Role`) em todas as rotas mutáveis (`POST`, `PUT`, `PATCH`, `DELETE`), retornando `401` para requisições não autenticadas e `403` para tentativas de alterar recursos de terceiros:
+- **Cidadão (`cidadao`):** Acesso restrito a cadastro, edição, exclusão e consulta de seus próprios descartes, pontos de coleta e dicas.
 - **Empresa/Catador (`coletor`):** Acesso ao feed de descartes georreferenciados, rotas e confirmação de baixa de coleta.
-- **Administrador (`admin`):** Acesso irrestrito a catálogos (resíduos, pontos, dicas), auditoria geral e emissão de relatórios ESG. Exige a chave mestra `ADMIN2026` para cadastro.
+- **Administrador (`admin`):** Acesso irrestrito a catálogos (resíduos, pontos, dicas), auditoria geral e emissão de relatórios ESG, validado via Custom Claims / token de servidor.
 
 ---
 

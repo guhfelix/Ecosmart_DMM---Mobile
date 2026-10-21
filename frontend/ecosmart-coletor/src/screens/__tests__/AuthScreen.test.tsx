@@ -120,7 +120,7 @@ describe('AuthScreen Coletor', () => {
     fireEvent.press(getByText('Cancelar'));
   });
 
-  it('deve realizar login com Google através do Firebase Auth', async () => {
+  it('deve bloquear login fictício com Google quando o provedor externo falhar (A4-12)', async () => {
     const onLoginSuccess = jest.fn();
     const onRegisterSuccess = jest.fn();
 
@@ -133,10 +133,7 @@ describe('AuthScreen Coletor', () => {
       fireEvent.press(getByTestId('google-login-button'));
     });
 
-    expect(onLoginSuccess).toHaveBeenCalledWith(
-      expect.objectContaining({
-        perfil: 'coletor',
-      })
-    );
+    expect(onLoginSuccess).not.toHaveBeenCalled();
+    expect(Alert.alert).toHaveBeenCalled();
   });
 });

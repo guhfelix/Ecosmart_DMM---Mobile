@@ -14,24 +14,24 @@ Este documento descreve os requisitos funcionais e não-funcionais implementados
 - [x] **Barramento em Tempo Real (0ms):** Propagação imediata de eventos de novos descartes (`NEW_DISCARD`), coletas (`DISCARD_COLLECTED`) e exclusões (`DISCARD_DELETED`) via `BroadcastChannel`.
 - [x] **Servidor Central Backend REST:** API local em Node.js (porta 3333) auto-iniciada em segundo plano com persistência JSON em disco.
 - [x] **Gerenciamento de Áreas Seguras:** Utilização de `react-native-safe-area-context` e `SafeAreaProvider` em todos os 3 apps.
-- [x] **Qualidade & Testes:** 75 suítes de testes e 386 testes automatizados com 100% de sucesso no Jest e React Native Testing Library.
+- [x] **Qualidade & Testes:** 77 suítes de testes e 454 testes automatizados com 100% de sucesso no Jest e React Native Testing Library.
 - [x] **Tipagem Estática Estrita:** Zero erros no compilador TypeScript (`tsc --noEmit`).
 
 ---
 
 ## 👤 EcoSmart Cidadão (`frontend/ecosmart-cidadao` - Porta 8081)
-- [x] Realizar login com Google (Firebase Auth) ou e-mail/senha.
+- [x] Realizar login com Google (Firebase Auth) ou e-mail/senha com hash seguro (`passwordHash` + `passwordSalt`).
 - [x] Criar cadastro rápido informando apenas nome, e-mail e senha.
 - [x] Recuperação de senha com código de verificação temporário (`ECO-XXXX`).
-- [x] Registrar descarte simples com seleção de material, quantidade, observação e endereço.
+- [x] Registrar e **editar descartes (CRUD completo)** com seleção de material, quantidade numérica (> 0) + unidade (`kg`, `unidade`, `saco`, `litro`), observação e endereço.
 - [x] Busca automática de endereço por CEP através da API ViaCEP com preenchimento de logradouro e bairro.
-- [x] Captura de localização geográfica por GPS simplificado.
+- [x] Captura de coordenadas geográficas de referência do bairro.
 - [x] Suporte a fotos de resíduos ou seleção de amostras representativas.
-- [x] Registro de descarte em modo offline com status `Pendente (Offline)`.
+- [x] Registro, edição e exclusão de descarte em modo offline com fila persistente (`outboxQueue`) e tombstones (`deletedIds`).
 - [x] Gravação transparente no Cloud Firestore (`saveCitizenDiscard`).
 - [x] Auto-sincronização em background ao restabelecer a conexão de internet.
 - [x] Consultar histórico de descartes do próprio cidadão com filtros (*Todos*, *Pendentes*, *Coletados*) e busca textual em tempo real.
-- [x] **Detalhes e Exclusão de Descarte:** Visualizar dados completos e permitir o cancelamento/exclusão do descarte com propagação em tempo real no backend e no Firestore.
+- [x] **Detalhes, Edição e Exclusão de Descarte:** Visualizar dados completos, editar o descarte preservando o mesmo `id` (`PUT /api/discards/:id`) ou cancelar/excluir a solicitação com propagação em tempo real no backend e no Firestore.
 - [x] Consultar pontos de coleta (PEVs) em Cáceres - MT com cálculo de distância (Haversine) e rotas no Google Maps / Waze.
 - [x] Consultar dicas educativas sobre sustentabilidade e conservação do Pantanal.
 - [x] Central de notificações em tempo real com contador e modal.
@@ -60,7 +60,7 @@ Este documento descreve os requisitos funcionais e não-funcionais implementados
 
 ## 👑 EcoSmart Admin (`frontend/ecosmart-admin` - Porta 8083)
 - [x] Realizar login com Google (Firebase Auth) ou e-mail/senha.
-- [x] Cadastro restrito de administradores exigindo a Chave Mestre de Segurança (`ADMIN2026`).
+- [x] Cadastro restrito de administradores validado via Custom Claims / token de servidor (`validateAdminRegistrationAccess`).
 - [x] CRUD completo de tipos de resíduos aceitos com busca em tempo real.
 - [x] CRUD completo de pontos de coleta e PEVs municipais com geolocalização, horários e resíduos aceitos.
 - [x] CRUD completo de dicas educativas de sustentabilidade com busca textual.
@@ -74,6 +74,6 @@ Este documento descreve os requisitos funcionais e não-funcionais implementados
 ---
 
 ## 🧪 Qualidade e Validação Automatizada
-- [x] **Suíte de Testes Unitários e Integração:** 75 suítes de testes com 386 testes passando com 100% de sucesso (`npm run test:all`).
+- [x] **Suíte de Testes Unitários e Integração:** 77 suítes de testes com 454 testes passando com 100% de sucesso (`npm run test:all`).
 - [x] **Diagnóstico E2E de Comunicação:** Script automatizado de teste de rotas REST, Firestore e Storage (`npm run test:communication`).
 - [x] **Verificação de Tipos TypeScript:** Zero erros em todo o monorepo (`npm run typecheck:all`).

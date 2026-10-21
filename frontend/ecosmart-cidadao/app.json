@@ -10,6 +10,9 @@
     ],
     "plugins": [
       "expo-status-bar"
-    ]
+    ],
+    "android": {
+      "usesCleartextTraffic": true
+    }
   }
 }

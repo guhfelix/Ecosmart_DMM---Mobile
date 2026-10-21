@@ -44,7 +44,7 @@ function logError(message, details = null) {
 /**
  * Utilitário HTTP para requisições com Promise e timeout
  */
-function requestHttp(method, pathUrl, body = null) {
+function requestHttp(method, pathUrl, body = null, customHeaders = {}) {
   return new Promise((resolve, reject) => {
     const url = new URL(pathUrl, BASE_URL);
     const options = {
@@ -55,6 +55,7 @@ function requestHttp(method, pathUrl, body = null) {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        ...customHeaders,
       },
       timeout: TIMEOUT_MS,
     };
@@ -152,13 +153,26 @@ async function runDiagnostic() {
     firestoreReady: false,
   };
 
+  const citizenAuthHeaders = {
+    Authorization: 'Bearer eco_user-cidadao-1_test_token',
+    'X-User-Id': 'user-cidadao-1',
+    'X-User-Role': 'cidadao',
+  };
+  const collectorAuthHeaders = {
+    Authorization: 'Bearer eco_user-coletor-lucas_test_token',
+    'X-User-Id': 'user-coletor-lucas',
+    'X-User-Role': 'coletor',
+  };
+
   const testDiscardId = `test-sync-${Date.now()}`;
   const testDiscardPayload = {
     id: testDiscardId,
+    userId: 'user-cidadao-1',
     citizenName: 'Maria Cidadã Pantaneira (Teste Automatizado)',
     wasteType: 'Plástico e PET',
     type: 'Plástico e PET',
-    quantity: '4 garrafas PET (2L)',
+    quantity: 4,
+    unit: 'unidade',
     observation: 'Teste de comunicação e sincronização em tempo real',
     cep: '78200-000',
     address: 'Rua Cel. José Dulce',
@@ -166,7 +180,8 @@ async function runDiagnostic() {
     neighborhood: 'Centro',
     city: 'Cáceres',
     status: 'pendente',
-    createdAt: new Date().toLocaleDateString('pt-BR'),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
 
   // ----------------------------------------------------
@@ -198,11 +213,11 @@ async function runDiagnostic() {
   logStep(2, 'Testando Criação de Descarte (Envio HTTP POST pelo Cidadão)');
   if (results.serverOnline) {
     try {
-      const createRes = await requestHttp('POST', '/api/discards', testDiscardPayload);
+      const createRes = await requestHttp('POST', '/api/discards', testDiscardPayload, citizenAuthHeaders);
       if (createRes.statusCode === 201 || createRes.statusCode === 200) {
         results.creationSuccess = true;
         logSuccess(`Descarte criado com sucesso no servidor! ID: ${testDiscardId}`);
-        console.log(`    📦 Tipo: ${testDiscardPayload.wasteType} | Quantidade: ${testDiscardPayload.quantity} | Local: Cáceres - MT`);
+        console.log(`    📦 Tipo: ${testDiscardPayload.wasteType} | Quantidade: ${testDiscardPayload.quantity} ${testDiscardPayload.unit} | Local: Cáceres - MT`);
       } else {
         logError(`Falha ao criar descarte no servidor. HTTP Status: ${createRes.statusCode}`, createRes.data);
       }
@@ -218,11 +233,23 @@ async function runDiagnostic() {
   }
 
   // ----------------------------------------------------
-  // ETAPA 3: Teste de Leitura e Disponibilidade (GET /api/discards)
+  // ETAPA 3: Teste de Leitura e Edição (GET e PUT /api/discards)
   // ----------------------------------------------------
-  logStep(3, 'Testando Leitura e Recepção de Dados (Consulta pelo Coletor/Admin)');
+  logStep(3, 'Testando Leitura e Edição de Descarte (GET e PUT /api/discards/:id)');
   if (results.creationSuccess) {
     try {
+      const updateRes = await requestHttp(
+        'PUT',
+        `/api/discards/${testDiscardId}`,
+        { quantity: 6, unit: 'kg', observation: 'Quantidade atualizada via PUT' },
+        citizenAuthHeaders
+      );
+      if (updateRes.statusCode === 200 && updateRes.data?.item?.id === testDiscardId) {
+        logSuccess(`Descarte ${testDiscardId} editado com sucesso via PUT /api/discards/:id (preservando ID).`);
+      } else {
+        logError(`Falha ao editar descarte via PUT. HTTP Status: ${updateRes.statusCode}`, updateRes.data);
+      }
+
       const getRes = await requestHttp('GET', '/api/discards');
       if (getRes.statusCode === 200 && Array.isArray(getRes.data)) {
         const found = getRes.data.find((item) => item.id === testDiscardId);
@@ -239,7 +266,7 @@ async function runDiagnostic() {
         logError(`Resposta inválida na consulta GET /api/discards. HTTP Status: ${getRes.statusCode}`);
       }
     } catch (err) {
-      logError('Erro ao consultar lista de descartes', err.message);
+      logError('Erro ao consultar/editar lista de descartes', err.message);
     }
   } else {
     logWarn('Etapa de leitura ignorada devido a falha na criação.');
@@ -251,9 +278,12 @@ async function runDiagnostic() {
   logStep(4, 'Testando Baixa de Coleta (Atualização de Status pelo Coletor)');
   if (results.readSuccess) {
     try {
-      const collectRes = await requestHttp('POST', `/api/discards/${testDiscardId}/collect`, {
-        coletorId: 'user-coletor-lucas',
-      });
+      const collectRes = await requestHttp(
+        'POST',
+        `/api/discards/${testDiscardId}/collect`,
+        { coletorId: 'user-coletor-lucas' },
+        collectorAuthHeaders
+      );
       if (collectRes.statusCode === 200 && collectRes.data && collectRes.data.success) {
         results.collectSuccess = true;
         logSuccess(`Descarte ${testDiscardId} marcado como COLETADO com sucesso.`);
@@ -274,7 +304,7 @@ async function runDiagnostic() {
   logStep(5, 'Testando Exclusão e Limpeza do Registro de Teste');
   if (results.serverOnline && results.creationSuccess) {
     try {
-      const deleteRes = await requestHttp('DELETE', `/api/discards/${testDiscardId}`);
+      const deleteRes = await requestHttp('DELETE', `/api/discards/${testDiscardId}`, null, citizenAuthHeaders);
       if (deleteRes.statusCode === 200 && deleteRes.data?.success) {
         results.deleteSuccess = true;
         logSuccess(`Registro de teste ${testDiscardId} removido do servidor sem deixar resíduos.`);

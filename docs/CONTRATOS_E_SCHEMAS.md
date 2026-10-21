@@ -37,7 +37,8 @@ export type PerfilUsuario = 'cidadao' | 'coletor' | 'admin';
 | `citizenName` | `string` | Sim | Nome completo do cidadão para exibição ao catador. |
 | `citizenEmail` | `string` | Não | E-mail do cidadão para rastreio e filtros. |
 | `wasteType` | `string` | Sim | Categoria do material (`Plástico e PET`, `Vidro`, etc.). |
-| `quantity` | `string` | Sim | Quantidade estimada (`2 sacolas`, `1 caixa`, `10 kg`). |
+| `quantity` | `number \| string` | Sim | Quantidade numérica positiva (> 0) ou string formatada compatível com registros legados. |
+| `unit` | `DiscardUnit` | Não | Unidade de medida (`'kg'`, `'unidade'`, `'saco'`, `'litro'`). |
 | `cep` | `string` | Sim | CEP da localização do descarte. |
 | `address` | `string` | Sim | Rua ou logradouro onde o resíduo está disponível. |
 | `number` | `string` | Não | Número da residência ou ponto de referência. |
@@ -235,6 +236,27 @@ Servidor central executando por padrão em `http://localhost:3333` (`scripts/syn
     "status": "pendente",
     "createdAt": "21/09/2026",
     "updatedAt": "2026-09-21T14:35:00.000Z"
+  }
+}
+```
+
+---
+
+### 3.3.1. Editar Descarte Existente por ID
+* **Método:** `PUT` ou `PATCH`
+* **Rota:** `/api/discards/:id`
+* **Headers Obrigatórios:** `Authorization: Bearer <token>`, `X-User-Id`, `X-User-Role`
+* **Descrição:** Atualiza um descarte existente preservando o mesmo `id` original, validando se o requisitante é o proprietário do descarte (`userId`) ou administrador (`admin`) e se a quantidade é numérica positiva (> 0).
+* **Resposta de Sucesso (200 OK):**
+```json
+{
+  "success": true,
+  "item": {
+    "id": "disc-1774300999",
+    "quantity": 5,
+    "unit": "kg",
+    "status": "pendente",
+    "updatedAt": "2026-09-21T14:38:00.000Z"
   }
 }
 ```

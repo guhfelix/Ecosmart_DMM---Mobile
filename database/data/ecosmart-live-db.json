@@ -1,5 +1,33 @@
 {
-  "discards": [],
+  "discards": [
+    {
+      "id": "disc-f478239b",
+      "userId": "user-cidadao-1",
+      "citizenId": "user-cidadao-1",
+      "citizenEmail": "maria@gmail.com",
+      "citizenName": "Maria Cidadã Pantaneira",
+      "wasteType": "Papel e Papelão",
+      "type": "Papel e Papelão",
+      "quantity": 15,
+      "unit": "unidade",
+      "address": "Rua das Alianças, S/N",
+      "number": "S/N",
+      "numero": "S/N",
+      "neighborhood": "Vila Nova",
+      "city": "Cáceres - MT",
+      "cep": "78217-150",
+      "observation": "Material reciclável pronto para coleta.",
+      "status": "coletado",
+      "createdAt": "2026-10-21T18:12:43.680Z",
+      "date": "2026-10-21T18:12:43.680Z",
+      "collectedAt": "2026-10-21T18:13:06.906Z",
+      "coletorId": "user-coletor-1",
+      "latitude": -16.0766,
+      "longitude": -57.6816,
+      "distanceKm": 0.8,
+      "updatedAt": "2026-10-21T18:13:06.906Z"
+    }
+  ],
   "users": [
     {
       "id": "user-cidadao-1",
@@ -47,5 +75,5 @@
       "bio": "Gestão e monitoramento ambiental do município de Cáceres - MT."
     }
   ],
-  "lastUpdated": "2026-10-14T19:30:00.000Z"
+  "lastUpdated": "2026-10-21T18:16:37.759Z"
 }

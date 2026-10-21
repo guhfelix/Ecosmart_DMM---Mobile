@@ -42,7 +42,7 @@ npm run sync:shared
 # 2. Executar verificação estática de tipos TypeScript (deve retornar 0 erros)
 npm run typecheck:all
 
-# 3. Executar toda a suíte de testes automatizados (75 suítes e 386 testes)
+# 3. Executar toda a suíte de testes automatizados (77 suítes e 454 testes)
 npm run test:all
 
 # 4. Executar diagnóstico de comunicação com a API e Firebase

@@ -16,7 +16,13 @@ const syncServer = spawn(process.execPath, [path.join(__dirname, 'sync-server.js
   stdio: 'inherit',
 });
 
+syncServer.on('error', (err) => {
+  console.warn('⚠️ Aviso ao iniciar processo do servidor central:', err.message);
+});
+
 process.on('SIGINT', () => {
-  syncServer.kill('SIGINT');
+  if (!syncServer.killed) {
+    syncServer.kill('SIGINT');
+  }
   process.exit(0);
 });

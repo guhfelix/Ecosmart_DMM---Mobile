@@ -46,13 +46,18 @@ export type AuthSession = {
 /** Status canônico de descarte */
 export type StatusDescarte = 'pendente' | 'visualizado' | 'coletado';
 
+/** Unidades de medida suportadas para descarte (A4-09) */
+export type DiscardUnit = 'kg' | 'unidade' | 'saco' | 'litro' | string;
+
 /** Modelo genérico de descarte */
 export type Descarte = {
   id: string;
   usuarioId?: string;
+  userId?: string;
   nomeCidadao?: string;
   tipoResiduo: string;
-  quantidade: string;
+  quantidade: number | string;
+  unit?: DiscardUnit;
   cep?: string;
   endereco?: string;
   numero?: string;
@@ -61,11 +66,14 @@ export type Descarte = {
   observacao?: string;
   status: StatusDescarte;
   dataCadastro: string;
+  createdAt?: string;
+  updatedAt?: string;
   dataColeta?: string;
   photoUri?: string;
   latitude?: number;
   longitude?: number;
   offline?: boolean;
+  syncPending?: boolean;
 };
 
 /** Status de descarte na visão do Cidadão */
@@ -77,10 +85,15 @@ export type DiscardItem = {
   userId?: string;
   citizenId?: string;
   citizenEmail?: string;
+  citizenName?: string;
   type: string;
-  quantity: string;
+  wasteType?: string;
+  quantity: number | string;
+  unit?: DiscardUnit;
   observation: string;
   date: string;
+  createdAt?: string;
+  updatedAt?: string;
   status: CitizenDiscardStatus;
   cep?: string;
   address?: string;
@@ -91,6 +104,7 @@ export type DiscardItem = {
   latitude?: number;
   longitude?: number;
   offline?: boolean;
+  syncPending?: boolean;
   photoUri?: string;
 };
 
@@ -105,7 +119,9 @@ export type CollectorDiscard = {
   citizenEmail?: string;
   citizenName: string;
   wasteType: string;
-  quantity: string;
+  type?: string;
+  quantity: number | string;
+  unit?: DiscardUnit;
   cep?: string;
   address: string;
   number?: string;
@@ -114,6 +130,7 @@ export type CollectorDiscard = {
   city?: string;
   observation?: string;
   createdAt: string;
+  date?: string;
   status: DiscardStatus;
   collectedAt?: string;
   coletorId?: string;
@@ -121,6 +138,7 @@ export type CollectorDiscard = {
   longitude?: number;
   distanceKm?: number;
   offlineSyncPending?: boolean;
+  syncPending?: boolean;
   photoUri?: string;
   updatedAt?: string;
 };
@@ -162,9 +180,14 @@ export type AdminDiscardStatus = StatusDescarte;
 /** Registro consolidado para auditoria e relatórios ESG do Administrador */
 export type AdminDiscardRecord = {
   id: string;
+  userId?: string;
+  citizenId?: string;
+  citizenEmail?: string;
   citizenName: string;
   wasteType: string;
-  quantity: string;
+  type?: string;
+  quantity: number | string;
+  unit?: DiscardUnit;
   neighborhood: string;
   cep?: string;
   address?: string;
@@ -172,12 +195,14 @@ export type AdminDiscardRecord = {
   numero?: string;
   city?: string;
   createdAt: string;
+  updatedAt?: string;
   status: AdminDiscardStatus;
   collectedAt?: string;
   coletorId?: string;
   latitude?: number;
   longitude?: number;
   offline?: boolean;
+  syncPending?: boolean;
   photoUri?: string;
 };
 

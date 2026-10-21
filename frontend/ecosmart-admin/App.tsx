@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -18,7 +18,11 @@ import { FeedbackMessage } from './src/components/FeedbackMessage';
 
 // Modelos, Serviços e Hooks
 import { STORAGE_KEYS } from './src/services/storageKeys';
-import { RegisteredUser } from './src/services/authService';
+import {
+  RegisteredUser,
+  sanitizeUsersForStorage,
+} from './src/services/authService';
+import { securityService } from './src/services/securityService';
 import { AppNotification, Usuario } from './src/models';
 import { useNetworkStatus } from './src/hooks/useNetworkStatus';
 import { OfflineBanner } from './src/components/OfflineBanner';
@@ -45,30 +49,47 @@ import {
 import { generateEntityId } from './src/utils/idUtils';
 
 /** Telas gerenciadas pelo perfil Administrador */
-type Screen = 'home' | 'wasteTypes' | 'collectionPoints' | 'tips' | 'records' | 'profile';
+type Screen =
+  | 'home'
+  | 'wasteTypes'
+  | 'collectionPoints'
+  | 'tips'
+  | 'records'
+  | 'profile';
 
 const createId = () => generateEntityId('adm');
 
 /**
  * Componente Raiz do aplicativo EcoSmart Admin.
- * Gerencia autenticação restrita, CRUDs com busca e persistência, perfil/governança, relatórios ESG, auto-sync e notificações.
+ * Gerencia autenticação restrita, CRUDs com busca e persistência,
+ * perfil/governança, relatórios ESG, auto-sync e notificações.
  */
 export default function App() {
   // --- Estados de Navegação e Entidades Gerenciadas ---
   const [screen, setScreen] = useState<Screen>('home');
-  const [wasteTypes, setWasteTypes] = useState<WasteTypeItem[]>(initialWasteTypes);
-  const [collectionPoints, setCollectionPoints] = useState<CollectionPointItem[]>(initialCollectionPoints);
-  const [educationalTips, setEducationalTips] = useState<EducationalTipItem[]>(initialEducationalTips);
-  const [records, setRecords] = useState<AdminDiscardRecord[]>(initialDiscardRecords);
-  const [recordFilter, setRecordFilter] = useState<'todos' | AdminDiscardStatus>('todos');
+  const [wasteTypes, setWasteTypes] =
+    useState<WasteTypeItem[]>(initialWasteTypes);
+  const [collectionPoints, setCollectionPoints] =
+    useState<CollectionPointItem[]>(initialCollectionPoints);
+  const [educationalTips, setEducationalTips] = useState<EducationalTipItem[]>(
+    initialEducationalTips
+  );
+  const [records, setRecords] = useState<AdminDiscardRecord[]>(
+    initialDiscardRecords
+  );
+  const [recordFilter, setRecordFilter] = useState<
+    'todos' | AdminDiscardStatus
+  >('todos');
   const [currentUser, setCurrentUser] = useState<Usuario | null>(null);
   const [registeredUsers, setRegisteredUsers] = useState<RegisteredUser[]>([]);
-  const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<AppNotification[]>(
+    INITIAL_NOTIFICATIONS
+  );
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
 
-  // Hook de conectividade
+  // Hook reativo de conectividade
   const { isOffline } = useNetworkStatus();
 
   // --- Efeito 1: Carregar todos os dados salvos localmente e da nuvem com persistência de perfil ---
@@ -96,15 +117,19 @@ export default function App() {
         if (storedWasteTypes) setWasteTypes(JSON.parse(storedWasteTypes));
         if (storedPoints) setCollectionPoints(JSON.parse(storedPoints));
         if (storedTips) setEducationalTips(JSON.parse(storedTips));
-        
-        const liveList = Array.isArray(liveDiscards) ? liveDiscards.map(normalizeToAdminDiscard) : null;
-        const localList: AdminDiscardRecord[] = storedRecords ? (JSON.parse(storedRecords) as any[]).map(normalizeToAdminDiscard) : [];
+
+        const liveList = Array.isArray(liveDiscards)
+          ? liveDiscards.map(normalizeToAdminDiscard)
+          : null;
+        const localList: AdminDiscardRecord[] = storedRecords
+          ? (JSON.parse(storedRecords) as any[]).map(normalizeToAdminDiscard)
+          : [];
         const mergedRecords = liveList !== null ? liveList : localList;
         setRecords(mergedRecords);
 
         let parsedUsers: RegisteredUser[] = [];
         if (storedUsers) {
-          parsedUsers = JSON.parse(storedUsers);
+          parsedUsers = sanitizeUsersForStorage(JSON.parse(storedUsers));
           setRegisteredUsers(parsedUsers);
         }
 
@@ -112,7 +137,9 @@ export default function App() {
           const session = JSON.parse(storedSession);
           if (session?.user && session.user.perfil === 'admin') {
             const existingInUsers = parsedUsers.find(
-              (u) => u.email.trim().toLowerCase() === session.user.email.trim().toLowerCase()
+              (u) =>
+                u.email.trim().toLowerCase() ===
+                session.user.email.trim().toLowerCase()
             );
 
             const activeUser: Usuario = existingInUsers
@@ -128,23 +155,31 @@ export default function App() {
                   bairro: existingInUsers.bairro || session.user.bairro,
                   cidade: existingInUsers.cidade || session.user.cidade,
                   cargo: existingInUsers.cargo || session.user.cargo,
-                  departamento: existingInUsers.departamento || session.user.departamento,
+                  departamento:
+                    existingInUsers.departamento || session.user.departamento,
                   bio: existingInUsers.bio || session.user.bio,
-                  updatedAt: existingInUsers.updatedAt || session.user.updatedAt,
+                  updatedAt:
+                    existingInUsers.updatedAt || session.user.updatedAt,
                 }
               : session.user;
 
+            crossAppSync.setAuthSession(activeUser, session.token);
             setCurrentUser(activeUser);
 
-            firebaseService.getUserByEmail(activeUser.email).then((cloudUser) => {
-              if (cloudUser) {
-                setCurrentUser((prev) => (prev ? { ...prev, ...cloudUser } : cloudUser));
-              }
-            }).catch(() => {});
+            firebaseService
+              .getUserByEmail(activeUser.email)
+              .then((cloudUser) => {
+                if (cloudUser) {
+                  setCurrentUser((prev) =>
+                    prev ? { ...prev, ...cloudUser } : cloudUser
+                  );
+                }
+              })
+              .catch(() => {});
           }
         }
       } catch (error) {
-        console.log('Erro ao carregar dados locais do admin:', error);
+        console.warn('Falha ao carregar dados locais do admin:', error);
       } finally {
         setIsReady(true);
       }
@@ -153,7 +188,7 @@ export default function App() {
     loadAppData();
   }, []);
 
-  // --- Efeito: Barramento de Eventos em Tempo Real (0ms) ---
+  // --- Efeito 2: Barramento de Eventos em Tempo Real (0ms) ---
   useEffect(() => {
     const unsubscribe = crossAppSync.onSyncEvent((event) => {
       if (event.type === 'NEW_DISCARD' && event.payload) {
@@ -162,6 +197,13 @@ export default function App() {
           if (prev.some((x) => x.id === newRecord.id)) return prev;
           return [newRecord, ...prev];
         });
+      } else if (event.type === 'DISCARD_UPDATED' && event.payload) {
+        const updatedRecord = normalizeToAdminDiscard(event.payload);
+        setRecords((prev) =>
+          prev.map((r) =>
+            r.id === updatedRecord.id ? { ...r, ...updatedRecord } : r
+          )
+        );
       } else if (event.type === 'DISCARD_COLLECTED' && event.payload) {
         setRecords((prev) =>
           prev.map((r) =>
@@ -169,8 +211,11 @@ export default function App() {
               ? {
                   ...r,
                   status: 'coletado',
-                  collectedAt: event.payload.collectedAt || (r as any).collectedAt || new Date().toLocaleDateString('pt-BR'),
-                  coletorId: event.payload.coletorId || (r as any).coletorId,
+                  collectedAt:
+                    event.payload.collectedAt ||
+                    r.collectedAt ||
+                    new Date().toLocaleDateString('pt-BR'),
+                  coletorId: event.payload.coletorId || r.coletorId,
                 }
               : r
           )
@@ -183,260 +228,341 @@ export default function App() {
     return unsubscribe;
   }, []);
 
-  // --- Efeito: Sincronização Periódica Inter-Aplicativos no Admin em Tempo Real ---
+  // --- Efeito 3: Auto-Sincronização ao Reconectar à Internet ou Recuperar Saúde do Servidor ---
+  useEffect(() => {
+    if (!isReady || isOffline) return;
+
+    const { updatedRecords, syncedCount } =
+      autoSyncService.processAutoSyncAdminRecords(records, isOffline);
+    if (syncedCount > 0) {
+      setRecords(updatedRecords);
+    }
+  }, [isOffline, isReady]);
+
   useEffect(() => {
     if (!isReady) return;
-
-    const syncCrossApp = async () => {
-      try {
-        const liveDiscards = await crossAppSync.fetchAllDiscards();
-        if (liveDiscards && Array.isArray(liveDiscards)) {
-          setRecords((prev) => {
-            const map = new Map<string, AdminDiscardRecord>();
-            prev.forEach((r) => map.set(r.id, r));
-            let hasChanges = false;
-
-            liveDiscards.map(normalizeToAdminDiscard).forEach((d) => {
-              if (!map.has(d.id)) {
-                hasChanges = true;
-                map.set(d.id, d);
-              } else {
-                const existing = map.get(d.id)!;
-                const isCollected = existing.status === 'coletado' || d.status === 'coletado';
-                const finalStatus = isCollected ? 'coletado' : d.status;
-                if (existing.status !== finalStatus) {
-                  hasChanges = true;
-                  map.set(d.id, {
-                    ...existing,
-                    ...d,
-                    status: finalStatus,
-                    collectedAt: d.collectedAt || (existing as any).collectedAt,
-                    coletorId: d.coletorId || (existing as any).coletorId,
+    const unsubscribe = crossAppSync.onSyncEvent((event) => {
+      if (event.type === 'HEALTH_RESTORED') {
+        crossAppSync
+          .fetchAllDiscards()
+          .then((remoteDiscards) => {
+            if (Array.isArray(remoteDiscards) && remoteDiscards.length > 0) {
+              setRecords((prev) => {
+                const map = new Map<string, AdminDiscardRecord>();
+                prev.forEach((r) => map.set(r.id, r));
+                remoteDiscards.forEach((d) => {
+                  const normalized = normalizeToAdminDiscard(d);
+                  map.set(normalized.id, {
+                    ...map.get(normalized.id),
+                    ...normalized,
                   });
-                }
-              }
-            });
-
-            return hasChanges ? Array.from(map.values()) : prev;
-          });
-        }
-      } catch (e) {}
-    };
-
-    const intervalId = setInterval(syncCrossApp, 1500);
-    return () => clearInterval(intervalId);
+                });
+                return Array.from(map.values());
+              });
+            }
+          })
+          .catch(() => {});
+      }
+    });
+    return unsubscribe;
   }, [isReady]);
 
   // --- Efeitos de Persistência para cada CRUD ---
   useEffect(() => {
     if (!isReady) return;
-    AsyncStorage.setItem(STORAGE_KEYS.ADMIN.WASTE_TYPES, JSON.stringify(wasteTypes)).catch(console.log);
+    AsyncStorage.setItem(
+      STORAGE_KEYS.ADMIN.WASTE_TYPES,
+      JSON.stringify(wasteTypes)
+    ).catch((e) => console.warn('Falha ao salvar tipos de resíduos:', e));
   }, [wasteTypes, isReady]);
 
   useEffect(() => {
     if (!isReady) return;
-    AsyncStorage.setItem(STORAGE_KEYS.ADMIN.COLLECTION_POINTS, JSON.stringify(collectionPoints)).catch(console.log);
+    AsyncStorage.setItem(
+      STORAGE_KEYS.ADMIN.COLLECTION_POINTS,
+      JSON.stringify(collectionPoints)
+    ).catch((e) => console.warn('Falha ao salvar pontos de coleta:', e));
   }, [collectionPoints, isReady]);
 
   useEffect(() => {
     if (!isReady) return;
-    AsyncStorage.setItem(STORAGE_KEYS.ADMIN.TIPS, JSON.stringify(educationalTips)).catch(console.log);
+    AsyncStorage.setItem(
+      STORAGE_KEYS.ADMIN.TIPS,
+      JSON.stringify(educationalTips)
+    ).catch((e) => console.warn('Falha ao salvar dicas educativas:', e));
   }, [educationalTips, isReady]);
 
   useEffect(() => {
     if (!isReady) return;
-    AsyncStorage.setItem(STORAGE_KEYS.ADMIN.RECORDS, JSON.stringify(records)).catch(console.log);
+    AsyncStorage.setItem(
+      STORAGE_KEYS.ADMIN.RECORDS,
+      JSON.stringify(records)
+    ).catch((e) => console.warn('Falha ao salvar registros:', e));
   }, [records, isReady]);
 
   useEffect(() => {
     if (!isReady) return;
-    AsyncStorage.setItem(STORAGE_KEYS.ADMIN.USERS, JSON.stringify(registeredUsers)).catch(console.log);
-    AsyncStorage.setItem(STORAGE_KEYS.SHARED.USERS, JSON.stringify(registeredUsers)).catch(console.log);
+    const safeUsers = sanitizeUsersForStorage(registeredUsers);
+    const serialized = JSON.stringify(safeUsers);
+    Promise.all([
+      AsyncStorage.setItem(STORAGE_KEYS.ADMIN.USERS, serialized),
+      AsyncStorage.setItem(STORAGE_KEYS.SHARED.USERS, serialized),
+    ]).catch((e) => console.warn('Falha ao salvar usuários:', e));
   }, [registeredUsers, isReady]);
 
   // --- Manipuladores de Autenticação e Usuário ---
-  const handleUpdateUser = async (updatedUser: Usuario) => {
+  const handleUpdateUser = useCallback(async (updatedUser: Usuario) => {
     setCurrentUser(updatedUser);
     setRegisteredUsers((prev) => {
       const emailLower = updatedUser.email.trim().toLowerCase();
-      const exists = prev.some((u) => u.email.trim().toLowerCase() === emailLower || u.id === updatedUser.id);
-      if (exists) {
-        return prev.map((u) =>
+      const exists = prev.some(
+        (u) =>
           u.email.trim().toLowerCase() === emailLower || u.id === updatedUser.id
-            ? {
-                ...u,
-                name: updatedUser.nome,
-                telefone: updatedUser.telefone,
-                cep: updatedUser.cep,
-                endereco: updatedUser.endereco,
-                numero: updatedUser.numero,
-                bairro: updatedUser.bairro,
-                cidade: updatedUser.cidade,
-                cargo: updatedUser.cargo,
-                departamento: updatedUser.departamento,
-                bio: updatedUser.bio,
-                updatedAt: new Date().toISOString(),
-              }
-            : u
-        );
-      }
-      return [
-        {
-          id: updatedUser.id,
-          name: updatedUser.nome,
-          email: updatedUser.email,
-          password: '1234',
-          perfil: updatedUser.perfil,
-          telefone: updatedUser.telefone,
-          cep: updatedUser.cep,
-          endereco: updatedUser.endereco,
-          numero: updatedUser.numero,
-          bairro: updatedUser.bairro,
-          cidade: updatedUser.cidade,
-          cargo: updatedUser.cargo,
-          departamento: updatedUser.departamento,
-          bio: updatedUser.bio,
-          updatedAt: new Date().toISOString(),
-        },
-        ...prev,
-      ];
+      );
+      const nextList = exists
+        ? prev.map((u) =>
+            u.email.trim().toLowerCase() === emailLower || u.id === updatedUser.id
+              ? {
+                  ...u,
+                  name: updatedUser.nome,
+                  telefone: updatedUser.telefone,
+                  cep: updatedUser.cep,
+                  endereco: updatedUser.endereco,
+                  numero: updatedUser.numero,
+                  bairro: updatedUser.bairro,
+                  cidade: updatedUser.cidade,
+                  cargo: updatedUser.cargo,
+                  departamento: updatedUser.departamento,
+                  bio: updatedUser.bio,
+                  updatedAt: new Date().toISOString(),
+                }
+              : u
+          )
+        : [
+            {
+              id: updatedUser.id,
+              name: updatedUser.nome,
+              email: updatedUser.email,
+              perfil: updatedUser.perfil,
+              telefone: updatedUser.telefone,
+              cep: updatedUser.cep,
+              endereco: updatedUser.endereco,
+              numero: updatedUser.numero,
+              bairro: updatedUser.bairro,
+              cidade: updatedUser.cidade,
+              cargo: updatedUser.cargo,
+              departamento: updatedUser.departamento,
+              bio: updatedUser.bio,
+              updatedAt: new Date().toISOString(),
+            },
+            ...prev,
+          ];
+      return sanitizeUsersForStorage(nextList);
     });
 
-    crossAppSync.syncUserProfile(updatedUser);
+    await crossAppSync.syncUserProfile(updatedUser);
 
     try {
       await AsyncStorage.setItem(
         STORAGE_KEYS.ADMIN.SESSION,
-        JSON.stringify({ user: updatedUser, loginAt: new Date().toISOString() })
+        JSON.stringify({
+          user: updatedUser,
+          token: securityService.generateSessionToken(updatedUser.id),
+          loginAt: new Date().toISOString(),
+        })
       );
     } catch (e) {
-      console.log('Erro ao salvar usuário atualizado:', e);
+      console.warn('Falha ao salvar usuário atualizado:', e);
     }
-  };
+  }, []);
 
-  const handleLoginSuccess = async (user: Usuario) => {
-    const localUser = registeredUsers.find(
-      (u) => u.email.trim().toLowerCase() === user.email.trim().toLowerCase()
-    );
-
-    const fullUser: Usuario = localUser
-      ? {
-          ...user,
-          nome: localUser.name || user.nome,
-          telefone: localUser.telefone || user.telefone,
-          cep: localUser.cep || user.cep,
-          endereco: localUser.endereco || user.endereco,
-          numero: localUser.numero || user.numero,
-          bairro: localUser.bairro || user.bairro,
-          cidade: localUser.cidade || user.cidade,
-          cargo: localUser.cargo || user.cargo,
-          departamento: localUser.departamento || user.departamento,
-          bio: localUser.bio || user.bio,
-        }
-      : user;
-
-    setCurrentUser(fullUser);
-    setScreen('home');
-    try {
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.ADMIN.SESSION,
-        JSON.stringify({ user: fullUser, loginAt: new Date().toISOString() })
+  const handleLoginSuccess = useCallback(
+    async (user: Usuario) => {
+      const localUser = registeredUsers.find(
+        (u) => u.email.trim().toLowerCase() === user.email.trim().toLowerCase()
       );
-    } catch (e) {
-      console.log('Erro ao salvar sessão:', e);
-    }
-  };
 
-  const handleRegisterSuccess = async (user: Usuario, updatedUsers: RegisteredUser[]) => {
-    setRegisteredUsers(updatedUsers);
-    setCurrentUser(user);
-    setScreen('home');
-    try {
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.ADMIN.SESSION,
-        JSON.stringify({ user, loginAt: new Date().toISOString() })
-      );
-    } catch (e) {
-      console.log('Erro ao salvar sessão:', e);
-    }
-  };
+      const fullUser: Usuario = localUser
+        ? {
+            ...user,
+            nome: localUser.name || user.nome,
+            telefone: localUser.telefone || user.telefone,
+            cep: localUser.cep || user.cep,
+            endereco: localUser.endereco || user.endereco,
+            numero: localUser.numero || user.numero,
+            bairro: localUser.bairro || user.bairro,
+            cidade: localUser.cidade || user.cidade,
+            cargo: localUser.cargo || user.cargo,
+            departamento: localUser.departamento || user.departamento,
+            bio: localUser.bio || user.bio,
+          }
+        : user;
 
-  const handleLogout = async () => {
+      const sessionToken = securityService.generateSessionToken(fullUser.id);
+      crossAppSync.setAuthSession(fullUser, sessionToken);
+      setCurrentUser(fullUser);
+      setScreen('home');
+      try {
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.ADMIN.SESSION,
+          JSON.stringify({
+            user: fullUser,
+            token: sessionToken,
+            loginAt: new Date().toISOString(),
+          })
+        );
+      } catch (e) {
+        console.warn('Falha ao salvar sessão:', e);
+      }
+    },
+    [registeredUsers]
+  );
+
+  const handleRegisterSuccess = useCallback(
+    async (user: Usuario, updatedUsers: RegisteredUser[]) => {
+      const safeUsers = sanitizeUsersForStorage(updatedUsers);
+      const sessionToken = securityService.generateSessionToken(user.id);
+      crossAppSync.setAuthSession(user, sessionToken);
+      setRegisteredUsers(safeUsers);
+      setCurrentUser(user);
+      setScreen('home');
+      try {
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.ADMIN.SESSION,
+          JSON.stringify({
+            user,
+            token: sessionToken,
+            loginAt: new Date().toISOString(),
+          })
+        );
+      } catch (e) {
+        console.warn('Falha ao salvar sessão:', e);
+      }
+    },
+    []
+  );
+
+  const handleLogout = useCallback(async () => {
+    crossAppSync.setAuthSession(null);
     setCurrentUser(null);
     setScreen('home');
     try {
       await AsyncStorage.removeItem(STORAGE_KEYS.ADMIN.SESSION);
     } catch (e) {
-      console.log('Erro ao remover sessão:', e);
+      console.warn('Falha ao remover sessão:', e);
     }
-  };
+  }, []);
 
   // --- Funções de Mutação de CRUDs ---
-  const saveWasteType = (input: { id?: string; name: string; description: string }) => {
-    if (input.id) {
-      setWasteTypes((prev) => prev.map((item) => (item.id === input.id ? { ...item, ...input, id: item.id } : item)));
-      return;
-    }
-    setWasteTypes((prev) => [{ ...input, id: createId() }, ...prev]);
-    const notif = createNotification('Tipo de Resíduo Cadastrado', `Novo material adicionado: ${input.name}.`, 'system');
-    setNotifications((prev) => [notif, ...prev]);
-  };
-
-  const saveCollectionPoint = (input: {
-    id?: string;
-    name: string;
-    address: string;
-    acceptedWaste: string;
-    schedule: string;
-    neighborhood?: string;
-    latitude?: number;
-    longitude?: number;
-  }) => {
-    if (input.id) {
-      setCollectionPoints((prev) =>
-        prev.map((item) => (item.id === input.id ? { ...item, ...input, id: item.id } : item)),
+  const saveWasteType = useCallback(
+    (input: { id?: string; name: string; description: string }) => {
+      if (input.id) {
+        setWasteTypes((prev) =>
+          prev.map((item) =>
+            item.id === input.id ? { ...item, ...input, id: item.id } : item
+          )
+        );
+        return;
+      }
+      setWasteTypes((prev) => [{ ...input, id: createId() }, ...prev]);
+      const notif = createNotification(
+        'Tipo de Resíduo Cadastrado',
+        `Novo material adicionado: ${input.name}.`,
+        'system'
       );
-      return;
-    }
-    setCollectionPoints((prev) => [{ ...input, id: createId() }, ...prev]);
-    const notif = createNotification('Ecoponto Cadastrado', `Novo local disponível: ${input.name}.`, 'system');
-    setNotifications((prev) => [notif, ...prev]);
-  };
+      setNotifications((prev) => [notif, ...prev]);
+    },
+    []
+  );
 
-  const saveEducationalTip = (input: { id?: string; title: string; category: string; content: string }) => {
-    if (input.id) {
-      setEducationalTips((prev) =>
-        prev.map((item) => (item.id === input.id ? { ...item, ...input, id: item.id } : item)),
+  const saveCollectionPoint = useCallback(
+    (input: {
+      id?: string;
+      name: string;
+      address: string;
+      acceptedWaste: string;
+      schedule: string;
+      neighborhood?: string;
+      latitude?: number;
+      longitude?: number;
+    }) => {
+      if (input.id) {
+        setCollectionPoints((prev) =>
+          prev.map((item) =>
+            item.id === input.id ? { ...item, ...input, id: item.id } : item
+          )
+        );
+        return;
+      }
+      setCollectionPoints((prev) => [{ ...input, id: createId() }, ...prev]);
+      const notif = createNotification(
+        'Ecoponto Cadastrado',
+        `Novo local disponível: ${input.name}.`,
+        'system'
       );
-      return;
-    }
-    setEducationalTips((prev) => [{ ...input, id: createId() }, ...prev]);
-    const notif = createNotification('Dica Publicada', `Novo conteúdo educativo: ${input.title}.`, 'system');
-    setNotifications((prev) => [notif, ...prev]);
-  };
+      setNotifications((prev) => [notif, ...prev]);
+    },
+    []
+  );
 
-  const deleteWasteType = (id: string) => {
+  const saveEducationalTip = useCallback(
+    (input: { id?: string; title: string; category: string; content: string }) => {
+      if (input.id) {
+        setEducationalTips((prev) =>
+          prev.map((item) =>
+            item.id === input.id ? { ...item, ...input, id: item.id } : item
+          )
+        );
+        return;
+      }
+      setEducationalTips((prev) => [{ ...input, id: createId() }, ...prev]);
+      const notif = createNotification(
+        'Dica Publicada',
+        `Novo conteúdo educativo: ${input.title}.`,
+        'system'
+      );
+      setNotifications((prev) => [notif, ...prev]);
+    },
+    []
+  );
+
+  const deleteWasteType = useCallback((id: string) => {
     setWasteTypes((prev) => prev.filter((item) => item.id !== id));
-  };
+  }, []);
 
-  const deleteCollectionPoint = (id: string) => {
+  const deleteCollectionPoint = useCallback((id: string) => {
     setCollectionPoints((prev) => prev.filter((item) => item.id !== id));
-  };
+  }, []);
 
-  const deleteEducationalTip = (id: string) => {
+  const deleteEducationalTip = useCallback((id: string) => {
     setEducationalTips((prev) => prev.filter((item) => item.id !== id));
-  };
+  }, []);
 
-  const handleDeleteRecord = async (id: string) => {
-    const target = records.find((r) => r.id === id);
-    setRecords((prev) => prev.filter((item) => item.id !== id));
-    await crossAppSync.deleteDiscard(id);
-    const notif = createNotification('Registro Excluído', `O registro de ${target?.wasteType || 'descarte'} foi removido.`, 'system');
-    setNotifications((prev) => [notif, ...prev]);
-    setFeedback('✓ Registro excluído com sucesso.');
-  };
+  const handleDeleteRecord = useCallback(
+    async (id: string) => {
+      const target = records.find((r) => r.id === id);
+      setRecords((prev) => prev.filter((item) => item.id !== id));
+      await crossAppSync.deleteDiscard(id, 'admin', currentUser?.id);
+      const notif = createNotification(
+        'Registro Excluído',
+        `O registro de ${target?.wasteType || 'descarte'} foi removido.`,
+        'system'
+      );
+      setNotifications((prev) => [notif, ...prev]);
+      setFeedback('✓ Registro excluído com sucesso.');
+    },
+    [currentUser?.id, records]
+  );
 
-  const unreadCount = useMemo(() => getUnreadNotificationCount(notifications), [notifications]);
+  const unreadCount = useMemo(
+    () => getUnreadNotificationCount(notifications),
+    [notifications]
+  );
+
+  const pendingRecordsCount = useMemo(
+    () => records.filter((item) => item.status === 'pendente').length,
+    [records]
+  );
 
   // --- Renderização Dinâmica de Telas ---
   const renderScreen = useMemo(() => {
@@ -513,7 +639,7 @@ export default function App() {
             wasteTypesCount={wasteTypes.length}
             collectionPointsCount={collectionPoints.length}
             recordsCount={records.length}
-            pendingRecordsCount={records.filter((item) => item.status === 'pendente').length}
+            pendingRecordsCount={pendingRecordsCount}
           />
         );
     }
@@ -527,7 +653,19 @@ export default function App() {
     currentUser,
     registeredUsers,
     unreadCount,
+    pendingRecordsCount,
     isOffline,
+    saveWasteType,
+    saveCollectionPoint,
+    saveEducationalTip,
+    deleteWasteType,
+    deleteCollectionPoint,
+    deleteEducationalTip,
+    handleDeleteRecord,
+    handleUpdateUser,
+    handleLoginSuccess,
+    handleRegisterSuccess,
+    handleLogout,
   ]);
 
   if (!isReady) {
@@ -551,7 +689,9 @@ export default function App() {
         visible={showNotificationsModal}
         notifications={notifications}
         onClose={() => setShowNotificationsModal(false)}
-        onMarkAllAsRead={() => setNotifications((prev) => markAllNotificationsAsRead(prev))}
+        onMarkAllAsRead={() =>
+          setNotifications((prev) => markAllNotificationsAsRead(prev))
+        }
       />
       <FeedbackMessage message={feedback} onHide={() => setFeedback(null)} />
       <StatusBar style="light" />

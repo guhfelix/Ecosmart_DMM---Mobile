@@ -6,10 +6,10 @@ O **EcoSmart Admin** é o aplicativo móvel executivo de gestão ambiental públ
 
 ## 🎯 Funcionalidades Principais
 
-- **🔐 Autenticação com Chave Mestre de Segurança:**
-  - Login rápido via **"Continuar com o Google" (Firebase Auth)** com permissões administrativas.
-  - Login tradicional por e-mail e senha.
-  - Cadastro de novos administradores protegido obrigatoriamente pela **Chave Mestre de Segurança (`ADMIN2026`)**.
+- **🔐 Autenticação Administrativa Segura:**
+  - Login rápido via **"Continuar com o Google" (Firebase Auth)** com permissões administrativas verificadas.
+  - Login tradicional por e-mail e senha com hash seguro (`passwordHash` + `passwordSalt`).
+  - Cadastro de novos administradores validado via **Custom Claims / Token de Servidor** (`validateAdminRegistrationAccess`), sem chaves estáticas expostas no bundle cliente.
   - Bloqueio estrito de perfis cruzados (RBAC).
 
 - **♻️ Gestão de Catálogos Municipais (CRUDs em Tempo Real):**
@@ -32,11 +32,10 @@ O **EcoSmart Admin** é o aplicativo móvel executivo de gestão ambiental públ
 
 ## 🔑 Credenciais de Teste
 
-| Tipo de Acesso | E-mail | Senha / Chave | Perfil |
+| Tipo de Acesso | E-mail | Senha | Perfil |
 | :--- | :--- | :--- | :--- |
 | **Login Tradicional** | `joao@gmail.com` | `1234` | `admin` |
 | **Login Google** | `joao.google@gmail.com` | — | `admin` |
-| **Chave de Cadastro Master** | — | `ADMIN2026` | `admin` |
 
 ---
 
@@ -53,4 +52,3 @@ npm run start:admin
 # Ou com duplo clique no executável do Windows
 executaveis/5-iniciar-admin.bat
 ```
-

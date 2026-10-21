@@ -8,10 +8,51 @@
  * banco de dados de administradores (ecosmart-admin-db) para os aplicativos Cidadão ou Coletor.
  */
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const rootDir = path.resolve(__dirname, '..');
 const sharedDir = path.join(rootDir, 'shared');
+
+/**
+ * Detecta o endereço IPv4 da rede local (LAN/Wi-Fi) do computador host
+ * para permitir que dispositivos físicos conectados ao Expo Go acessem a API REST na porta 3333.
+ */
+function detectHostLanIp() {
+  try {
+    const interfaces = os.networkInterfaces();
+    const preferredOrder = [];
+    const fallbackOrder = [];
+
+    for (const [name, addrs] of Object.entries(interfaces)) {
+      if (!Array.isArray(addrs)) continue;
+      const lowerName = name.toLowerCase();
+      // Ignora interfaces virtuais de Hyper-V/WSL/Docker/Loopback
+      const isVirtual =
+        lowerName.includes('vethernet') ||
+        lowerName.includes('wsl') ||
+        lowerName.includes('docker') ||
+        lowerName.includes('virtualbox') ||
+        lowerName.includes('vmware');
+
+      for (const addr of addrs) {
+        if ((addr.family === 'IPv4' || addr.family === 4) && !addr.internal && addr.address) {
+          if (!isVirtual && /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(addr.address)) {
+            preferredOrder.push(addr.address);
+          } else if (!isVirtual) {
+            fallbackOrder.push(addr.address);
+          }
+        }
+      }
+    }
+
+    return preferredOrder[0] || fallbackOrder[0] || null;
+  } catch (_e) {
+    return null;
+  }
+}
+
+const detectedLanIp = detectHostLanIp();
 
 const targetApps = [
   { path: path.join(rootDir, 'frontend', 'ecosmart-cidadao', 'src'), name: 'ecosmart-cidadao', isAdmin: false },
@@ -70,6 +111,13 @@ function copyRecursive(src, dest, targetApp) {
         const rawContent = fs.readFileSync(srcPath, 'utf-8');
         const sanitizedContent = sanitizeFirebaseConfigForClient(rawContent);
         fs.writeFileSync(destPath, sanitizedContent, 'utf-8');
+      } else if (entry.name === 'crossAppSync.ts' && detectedLanIp) {
+        const rawContent = fs.readFileSync(srcPath, 'utf-8');
+        const injectedContent = rawContent.replace(
+          /export const DETECTED_HOST_LAN_URL = ['"][^'"]*['"];/,
+          `export const DETECTED_HOST_LAN_URL = 'http://${detectedLanIp}:3333';`
+        );
+        fs.writeFileSync(destPath, injectedContent, 'utf-8');
       } else {
         fs.copyFileSync(srcPath, destPath);
       }

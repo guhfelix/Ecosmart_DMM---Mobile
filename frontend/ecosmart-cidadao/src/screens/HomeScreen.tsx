@@ -15,6 +15,7 @@ import { homeItems } from '../data/mockData';
 import type { DiscardItem, Usuario } from '../models';
 import { colors } from '../theme/colors';
 import { radius, shadow, spacing } from '../theme/layout';
+import { validationUtils } from '../utils/validationUtils';
 
 type Props = {
   onNavigate: (screen: 'register' | 'history' | 'tips' | 'points' | 'profile') => void;
@@ -138,7 +139,9 @@ export function HomeScreen({
                       variant={isCollected ? 'success' : isOffline ? 'danger' : 'warning'}
                     />
                   </View>
-                  <Text style={styles.discardQuantity}>{item.quantity}</Text>
+                  <Text style={styles.discardQuantity}>
+                    {validationUtils.formatQuantityWithUnit(item.quantity, item.unit)}
+                  </Text>
                   <View style={styles.discardFooter}>
                     <Text style={styles.discardMeta}>
                       {item.date}{item.neighborhood ? ` • ${item.neighborhood}` : ''}

@@ -74,4 +74,108 @@ export const validationUtils = {
   sanitizeText(input: string): string {
     return input.replace(/[<>]/g, '').trim();
   },
+
+  /**
+   * Valida se a quantidade informada é um número estritamente positivo (> 0),
+   * bloqueando valores vazios, zero, negativos ou caracteres alfabéticos (A4-09).
+   */
+  isValidQuantity(input: string | number): ValidationResult & { numericValue?: number } {
+    if (typeof input === 'number') {
+      if (!Number.isFinite(input) || input <= 0) {
+        return {
+          isValid: false,
+          errorMessage: 'A quantidade deve ser um número maior que zero.',
+        };
+      }
+      return { isValid: true, numericValue: input };
+    }
+
+    const trimmed = (input || '').trim();
+    if (!trimmed) {
+      return {
+        isValid: false,
+        errorMessage: 'Informe a quantidade.',
+      };
+    }
+
+    // Bloqueia letras/caracteres alfabéticos ou negativos
+    if (/[a-zA-Z]/.test(trimmed)) {
+      return {
+        isValid: false,
+        errorMessage: 'A quantidade deve conter apenas números (sem letras).',
+      };
+    }
+
+    const normalized = trimmed.replace(',', '.');
+    if (!/^-?\d+(\.\d+)?$/.test(normalized)) {
+      return {
+        isValid: false,
+        errorMessage: 'Informe um valor numérico válido.',
+      };
+    }
+
+    const numericValue = parseFloat(normalized);
+    if (Number.isNaN(numericValue) || numericValue <= 0) {
+      return {
+        isValid: false,
+        errorMessage: 'A quantidade deve ser maior que zero.',
+      };
+    }
+
+    return { isValid: true, numericValue };
+  },
+
+  /**
+   * Extrai quantidade numérica e unidade de medida de registros novos ou legados (A4-09).
+   */
+  parseQuantityAndUnit(
+    rawQuantity: number | string | undefined,
+    rawUnit?: string
+  ): { numericValue: number; unit: string; display: string } {
+    if (typeof rawQuantity === 'number' && Number.isFinite(rawQuantity) && rawQuantity > 0) {
+      const unit = (rawUnit || 'unidade').trim();
+      return {
+        numericValue: rawQuantity,
+        unit,
+        display: `${rawQuantity} ${unit}`,
+      };
+    }
+
+    const str = String(rawQuantity ?? '').trim();
+    const match = str.match(/^(\d+(?:[.,]\d+)?)\s*(.*)$/);
+    if (match) {
+      const num = parseFloat(match[1].replace(',', '.'));
+      const extractedUnit = (rawUnit || match[2] || 'unidade').trim();
+      const validNum = !Number.isNaN(num) && num > 0 ? num : 1;
+      return {
+        numericValue: validNum,
+        unit: extractedUnit,
+        display: `${validNum} ${extractedUnit}`,
+      };
+    }
+
+    const fallbackUnit = (rawUnit || 'unidade').trim();
+    return {
+      numericValue: 1,
+      unit: fallbackUnit,
+      display: str || `1 ${fallbackUnit}`,
+    };
+  },
+
+  /**
+   * Formata a quantidade e unidade para exibição nas telas de histórico e detalhes (A4-09).
+   */
+  formatQuantityWithUnit(quantity: number | string | undefined, unit?: string): string {
+    if (quantity === undefined || quantity === null || quantity === '') {
+      return unit ? `1 ${unit}` : '1 unidade';
+    }
+    if (typeof quantity === 'number') {
+      return unit ? `${quantity} ${unit}` : `${quantity} unidade`;
+    }
+    const trimmed = quantity.trim();
+    if (unit && !trimmed.toLowerCase().includes(unit.toLowerCase())) {
+      return `${trimmed} ${unit}`;
+    }
+    return trimmed;
+  },
 };

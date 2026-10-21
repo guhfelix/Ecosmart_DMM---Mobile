@@ -17,11 +17,11 @@ Este documento apresenta o histórico de etapas concluídas do desenvolvimento d
 **Status:** Concluída ✅
 - [x] Implementar login social com Google (Firebase Auth) e login tradicional E-mail/Senha com RBAC estrito.
 - [x] Implementar recuperação de senha com código de verificação temporário (`ECO-XXXX`).
-- [x] Implementar cadastro simples e direto de descarte (material, quantidade, observações e fotos).
-- [x] Integrar busca automática de endereço por CEP via ViaCEP e GPS simplificado.
-- [x] Gravação transparente no Cloud Firestore (`saveCitizenDiscard`).
+- [x] Implementar cadastro e edição (CRUD completo) de descarte (material, quantidade numérica + unidade, observações e fotos).
+- [x] Integrar busca automática de endereço por CEP via ViaCEP e coordenadas de referência do bairro.
+- [x] Gravação transparente no Cloud Firestore (`saveCitizenDiscard`) e fila offline persistente (`outboxQueue`).
 - [x] Implementar histórico de descartes persistido no AsyncStorage isolado por usuário (`@ecosmart_cidadao_discards_${userId}`).
-- [x] Implementar tela de Detalhes do Descarte com botão de cancelamento/exclusão em tempo real.
+- [x] Implementar tela de Detalhes do Descarte com botões de edição (`PUT /api/discards/:id`) e cancelamento/exclusão com tombstones offline.
 - [x] Implementar catálogo de Ecopontos e PEVs de Cáceres - MT com cálculo de distância (Haversine) e rotas (Google Maps / Waze).
 - [x] Implementar feed de dicas educativas de sustentabilidade e conservação do Pantanal.
 - [x] Implementar Perfil do Cidadão (resumo de descartes e edição cadastral).
@@ -46,7 +46,7 @@ Este documento apresenta o histórico de etapas concluídas do desenvolvimento d
 
 ## 👑 Etapa 4 - Aplicativo EcoSmart Admin
 **Status:** Concluída ✅
-- [x] Implementar login (Google e E-mail/Senha) e cadastro protegido por Chave Mestre de Segurança (`ADMIN2026`).
+- [x] Implementar login (Google e E-mail/Senha) e cadastro validado por Custom Claims / token de servidor.
 - [x] CRUD completo de tipos de resíduos aceitos com busca em tempo real.
 - [x] CRUD completo de pontos de coleta (PEVs) com geolocalização e horários.
 - [x] CRUD completo de dicas educativas de sustentabilidade com categorização.
@@ -61,7 +61,7 @@ Este documento apresenta o histórico de etapas concluídas do desenvolvimento d
 - [x] Migração para `react-native-safe-area-context` e `SafeAreaProvider` nos 3 apps.
 - [x] Namespaces isolados no `AsyncStorage` para evitar contaminação cruzada entre apps e usuários.
 - [x] Validação TypeScript estrita (`tsc --noEmit`) com 0 erros.
-- [x] 100% de sucesso nos testes automatizados (**75 suítes e 386 testes passando** no Jest).
+- [x] 100% de sucesso nos testes automatizados (**77 suítes e 454 testes passando** no Jest).
 
 ---
 

@@ -7,7 +7,7 @@
 ![Expo](https://img.shields.io/badge/Expo-SDK%2054-black)
 ![Node.js](https://img.shields.io/badge/Node.js-Backend%20REST-green)
 ![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue)
-![Tests](https://img.shields.io/badge/Tests-77%20suites%20%7C%20425%20passed-success)
+![Tests](https://img.shields.io/badge/Tests-77%20suites%20%7C%20454%20passed-success)
 ![Firebase](https://img.shields.io/badge/Firebase-Firestore%20%2B%20Auth-orange)
 ![License](https://img.shields.io/badge/license-academic-lightgrey)
 
@@ -17,10 +17,10 @@ O projeto é estruturado em três aplicativos móveis independentes em **React N
 
 | Módulo / Aplicativo | Perfil / Tipo | Porta | Função Principal |
 | :--- | :--- | :--- | :--- |
-| **EcoSmart Cidadão** | Cidadão | `8081` | Registro rápido de descartes (tipo, quantidade, endereço com CEP e GPS simplificado), gravação direta no Firestore (`saveCitizenDiscard`), histórico com busca e filtros, dicas, pontos com rotas, auto-sync, **Login com Google (Firebase Auth)** e **Perfil do Cidadão**. |
-| **EcoSmart Empresa/Catador** | Coletor | `8082` | Feed de descartes com distâncias geográficas (Haversine), ouvintes em tempo real (`onSnapshot`), ordenação por proximidade, rota GPS e baixa de coleta em 1 toque no card, auto-sync, **Login com Google (Firebase Auth)** e **Perfil Operacional**. |
-| **EcoSmart Admin** | Administrador | `8083` | **Login com Google / Chave Mestre (ADMIN2026)**, base exclusiva de gestão isolada no Firestore, CRUDs de resíduos, pontos e dicas com busca em tempo real, dashboard e exportação de Relatórios ESG (CSV) e **Perfil de Gestão Master**. |
-| **Servidor Central Backend** | API REST / Node.js | `3333` | API centralizada de sincronização em tempo real, barramento de eventos, persistência intermediária, controle de rotas de descartes/coletas e verificação automática com o Firebase Firestore. |
+| **EcoSmart Cidadão** | Cidadão | `8081` | Registro e **edição completa (CRUD)** de descartes (tipo, quantidade numérica + unidade, endereço com CEP e coordenadas de referência do bairro), gravação no Firestore (`saveCitizenDiscard`), fila offline persistente (`outbox`) e tombstones, histórico com busca e filtros, dicas, pontos com rotas, **Login com Google (Firebase Auth)** e **Perfil do Cidadão**. |
+| **EcoSmart Empresa/Catador** | Coletor | `8082` | Feed de descartes com distâncias geográficas (Haversine), ouvintes em tempo real (`onSnapshot` e SSE), ordenação por proximidade, rota GPS e baixa de coleta em 1 toque no card, auto-sync, **Login com Google (Firebase Auth)** e **Perfil Operacional**. |
+| **EcoSmart Admin** | Administrador | `8083` | **Login com Google / Validação por Custom Claims & Token de Servidor**, base exclusiva de gestão isolada no Firestore (`/admins`), CRUDs de resíduos, pontos e dicas com busca em tempo real, dashboard e exportação de Relatórios ESG (CSV) e **Perfil de Gestão Master**. |
+| **Servidor Central Backend** | API REST / Node.js | `3333` | API centralizada de sincronização em tempo real (REST + SSE `/api/events`), validação de propriedade/token (401/403), persistência atômica JSON e integração com o Firebase Firestore. |
 
 ---
 
@@ -112,11 +112,13 @@ O backend do ecossistema é centralizado e responsável por intermediar as requi
 | Método | Endpoint | Descrição |
 | :--- | :--- | :--- |
 | `GET` | `/api/health` | Verificação de integridade, status e latência do servidor. |
-| `GET` | `/api/discards` | Consulta a listagem unificada de descartes para coletores e gestores. |
-| `POST` | `/api/discards` | Criação e recebimento de novo descarte cadastrado pelo Cidadão. |
-| `POST` | `/api/discards/:id/collect` | Baixa e confirmação de coleta realizada por Coletor/Empresa. |
-| `DELETE` | `/api/discards/:id` | Cancelamento e exclusão de registro de descarte. |
-| `POST` | `/api/users` | Sincronização de perfis e dados cadastrais de usuários. |
+| `GET` | `/api/events` | Stream Server-Sent Events (SSE) para propagação em tempo real entre dispositivos. |
+| `GET` | `/api/discards` | Consulta a listagem unificada de descartes (com paginação opcional `limit`/`offset`). |
+| `POST` | `/api/discards` | Criação de novo descarte cadastrado pelo Cidadão (requer autenticação). |
+| `PUT` / `PATCH` | `/api/discards/:id` | Edição de descarte existente preservando o `id` original (validação de proprietário/admin). |
+| `POST` / `PATCH` | `/api/discards/:id/collect` | Baixa e confirmação de coleta realizada por Coletor/Empresa. |
+| `DELETE` | `/api/discards/:id` | Cancelamento e exclusão de registro de descarte (validação de proprietário/admin). |
+| `GET` / `POST` | `/api/users` | Consulta e sincronização de perfis e dados cadastrais de usuários (sem exposição de senhas). |
 
 ---
 
@@ -163,7 +165,7 @@ A pasta [`executaveis/`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre
 
 ## 🧪 Qualidade e Testes Automatizados
 
-O ecossistema conta com **77 suítes de testes** e **425 testes automatizados** (100% de sucesso):
+O ecossistema conta com **77 suítes de testes** e **454 testes automatizados** (100% de sucesso):
 
 ```bash
 # Executa todos os testes dos 3 aplicativos com propagação do shared

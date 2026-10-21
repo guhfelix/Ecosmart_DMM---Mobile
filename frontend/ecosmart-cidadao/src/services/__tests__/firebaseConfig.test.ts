@@ -29,4 +29,10 @@ describe('firebaseConfig (Inicialização e Instâncias Firebase)', () => {
     expect(() => getFirebaseAuth()).not.toThrow();
     expect(() => getFirebaseStorage()).not.toThrow();
   });
+
+  it('deve reutilizar a instância singleton do Firebase Auth sem emitir warnings', () => {
+    const firstAuth = getFirebaseAuth();
+    const secondAuth = getFirebaseAuth();
+    expect(secondAuth).toBe(firstAuth);
+  });
 });

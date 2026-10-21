@@ -55,7 +55,7 @@ describe('AvailableDiscardsScreen Coletor', () => {
     expect(getByText('Descartes disponíveis')).toBeTruthy();
     
     // Clicar no primeiro descarte pelo texto da quantidade
-    fireEvent.press(getByText(mockDiscards[0].quantity));
+    fireEvent.press(getByText(String(mockDiscards[0].quantity)));
     expect(onOpenDetails).toHaveBeenCalledWith(mockDiscards[0]);
   });
 

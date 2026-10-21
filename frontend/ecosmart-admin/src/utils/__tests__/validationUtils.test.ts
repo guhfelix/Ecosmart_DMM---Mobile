@@ -1,6 +1,6 @@
 import { validationUtils } from '../validationUtils';
 
-describe('validationUtils (Validação e Sanitização)', () => {
+describe('validationUtils (Validação e Sanitização - incluindo Quantidade e Unidade A4-09)', () => {
   describe('isValidEmail', () => {
     it('deve aceitar e-mails válidos', () => {
       expect(validationUtils.isValidEmail('maria@gmail.com').isValid).toBe(true);
@@ -73,6 +73,31 @@ describe('validationUtils (Validação e Sanitização)', () => {
 
     it('deve fazer trim de espaços nas extremidades', () => {
       expect(validationUtils.sanitizeText('   Texto Limpo   ')).toBe('Texto Limpo');
+    });
+  });
+
+  describe('isValidQuantity e formatQuantityWithUnit (A4-09)', () => {
+    it('deve aceitar quantidades numéricas maiores que zero', () => {
+      const resInt = validationUtils.isValidQuantity('5');
+      expect(resInt.isValid).toBe(true);
+      expect(resInt.numericValue).toBe(5);
+
+      const resDec = validationUtils.isValidQuantity('2,5');
+      expect(resDec.isValid).toBe(true);
+      expect(resDec.numericValue).toBe(2.5);
+    });
+
+    it('deve bloquear valores vazios, zero, negativos ou alfabéticos', () => {
+      expect(validationUtils.isValidQuantity('').isValid).toBe(false);
+      expect(validationUtils.isValidQuantity('0').isValid).toBe(false);
+      expect(validationUtils.isValidQuantity('-4').isValid).toBe(false);
+      expect(validationUtils.isValidQuantity('abc').isValid).toBe(false);
+      expect(validationUtils.isValidQuantity('5kg').isValid).toBe(false);
+    });
+
+    it('deve formatar quantidade com unidade mantendo compatibilidade com dados legados', () => {
+      expect(validationUtils.formatQuantityWithUnit(4, 'saco')).toBe('4 saco');
+      expect(validationUtils.formatQuantityWithUnit('3 sacolas')).toBe('3 sacolas');
     });
   });
 });

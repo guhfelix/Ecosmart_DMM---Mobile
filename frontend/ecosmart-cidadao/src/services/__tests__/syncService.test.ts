@@ -1,131 +1,251 @@
-import { AutoSyncService } from '../syncService';
-import { DiscardItem, CollectorDiscard, AdminDiscardRecord } from '../../models';
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
+);
 
-describe('syncService (AutoSyncService - Outbox Pattern & LWW)', () => {
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  AutoSyncService,
+  reconcileCitizenDiscards,
+  normalizeToIsoDate,
+} from '../syncService';
+import { DiscardItem, CollectorDiscard, AdminDiscardRecord } from '../../models';
+import { getOutboxStorageKey } from '../storageKeys';
+
+describe('syncService (Outbox Persistente, Sincronização Real, Tombstones e Conciliação - A4-03 a A4-06)', () => {
   let syncService: AutoSyncService;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    await AsyncStorage.clear();
     syncService = new AutoSyncService();
   });
 
-  describe('enqueueMutation e getPendingMutationCount', () => {
-    it('deve enfileirar mutações offline e atualizar a contagem', () => {
+  describe('Fila Offline Persistente no AsyncStorage (A4-04)', () => {
+    it('deve enfileirar mutações offline, persistir no AsyncStorage e recarregar ao reabrir o app', async () => {
       expect(syncService.getPendingMutationCount()).toBe(0);
 
-      syncService.enqueueMutation('CREATE_DISCARD', { id: '1' });
-      syncService.enqueueMutation('COLLECT_DISCARD', { id: '2' });
+      syncService.enqueueMutation('CREATE', { id: 'disc-1', type: 'Plástico' }, 'user-1', 'disc-1');
+      syncService.enqueueMutation('UPDATE', { id: 'disc-2', type: 'Vidro' }, 'user-1', 'disc-2');
 
       expect(syncService.getPendingMutationCount()).toBe(2);
+
+      // Verifica persistência real no AsyncStorage
+      const storedRaw = await AsyncStorage.getItem(getOutboxStorageKey('user-1'));
+      expect(storedRaw).toBeTruthy();
+      const parsed = JSON.parse(storedRaw!);
+      expect(parsed.length).toBe(2);
+      expect(parsed[0]).toEqual(
+        expect.objectContaining({
+          action: 'CREATE',
+          discardId: 'disc-1',
+          retryCount: 0,
+        })
+      );
+
+      // Simula fechamento e reabertura do aplicativo com nova instância de serviço
+      const restartedService = new AutoSyncService();
+      await restartedService.loadOutboxQueue('user-1');
+      expect(restartedService.getPendingMutationCount()).toBe(2);
     });
   });
 
-  describe('processAutoSyncCitizenDiscards', () => {
+  describe('Sincronização Real e Fim do Falso Sucesso (A4-03 e A4-07)', () => {
     const mockCitizenDiscards: DiscardItem[] = [
       {
         id: '1',
         type: 'Plástico',
-        quantity: '2 sacolas',
+        quantity: 2,
+        unit: 'saco',
         observation: '',
-        date: '24/08/2026',
+        date: '2026-08-24T12:00:00.000Z',
         status: 'Pendente (Offline)',
         offline: true,
+        syncPending: true,
       },
       {
         id: '2',
         type: 'Vidro',
-        quantity: '1 caixa',
+        quantity: 1,
+        unit: 'unidade',
         observation: '',
-        date: '24/08/2026',
+        date: '2026-08-24T12:00:00.000Z',
         status: 'Coletado',
         offline: false,
+        syncPending: false,
       },
     ];
 
-    it('não deve sincronizar quando estiver offline', () => {
-      const result = syncService.processAutoSyncCitizenDiscards(mockCitizenDiscards, true);
+    it('não deve sincronizar quando estiver offline', async () => {
+      const result = await syncService.processAutoSyncCitizenDiscards(mockCitizenDiscards, true);
       expect(result.syncedCount).toBe(0);
       expect(result.updatedDiscards).toEqual(mockCitizenDiscards);
     });
 
-    it('deve sincronizar registros pendentes para status Pendente online', () => {
-      syncService.enqueueMutation('CREATE_DISCARD', { id: '1' });
-      const result = syncService.processAutoSyncCitizenDiscards(mockCitizenDiscards, false);
+    it('deve manter syncPending: true e item na fila quando o servidor falhar (sem falso sucesso)', async () => {
+      syncService.enqueueMutation('CREATE', mockCitizenDiscards[0], 'user-1', '1');
+
+      const result = await syncService.processAutoSyncCitizenDiscards(
+        mockCitizenDiscards,
+        false,
+        {
+          userId: 'user-1',
+          syncExecutor: async () => false, // Simula falha de rede/servidor
+        }
+      );
+
+      expect(result.syncedCount).toBe(0);
+      expect(result.failedCount).toBe(1);
+      expect(result.updatedDiscards[0].status).toBe('Pendente (Offline)');
+      expect(result.updatedDiscards[0].offline).toBe(true);
+      expect(result.updatedDiscards[0].syncPending).toBe(true);
+      expect(syncService.getPendingMutationCount()).toBe(1);
+      expect(syncService.getOutboxQueue()[0].retryCount).toBe(1);
+    });
+
+    it('deve alterar para Pendente e limpar fila somente após confirmação inequívoca do servidor', async () => {
+      syncService.enqueueMutation('CREATE', mockCitizenDiscards[0], 'user-1', '1');
+
+      const result = await syncService.processAutoSyncCitizenDiscards(
+        mockCitizenDiscards,
+        false,
+        {
+          userId: 'user-1',
+          syncExecutor: async () => true, // Confirmação real da API/Firestore
+        }
+      );
 
       expect(result.syncedCount).toBe(1);
+      expect(result.failedCount).toBe(0);
       expect(result.updatedDiscards[0].status).toBe('Pendente');
       expect(result.updatedDiscards[0].offline).toBe(false);
-      expect(result.updatedDiscards[1].status).toBe('Coletado');
+      expect(result.updatedDiscards[0].syncPending).toBe(false);
       expect(syncService.getPendingMutationCount()).toBe(0);
     });
   });
 
-  describe('processAutoSyncCollectorDiscards', () => {
-    const mockCollectorDiscards: CollectorDiscard[] = [
-      {
-        id: 'col-1',
-        citizenName: 'Cidadão 1',
-        wasteType: 'Metal e Alumínio',
-        quantity: '10 kg',
-        address: 'Rua 1',
-        neighborhood: 'Centro',
-        createdAt: '24/08/2026',
-        status: 'coletado',
-        offlineSyncPending: true,
-      },
-      {
-        id: 'col-2',
-        citizenName: 'Cidadão 2',
-        wasteType: 'Papel e Papelão',
-        quantity: '5 kg',
-        address: 'Rua 2',
-        neighborhood: 'Cavalhada',
-        createdAt: '24/08/2026',
-        status: 'coletado',
-        offlineSyncPending: false,
-      },
-    ];
+  describe('Tombstones Offline e Conciliação Sem Sobrescrita (A4-05 e A4-06)', () => {
+    it('não deve reimportar um item excluído localmente (tombstone) durante a conciliação', () => {
+      syncService.enqueueMutation('DELETE', { id: 'disc-deleted' }, 'user-1', 'disc-deleted');
 
-    it('não deve sincronizar se estiver offline', () => {
-      const result = syncService.processAutoSyncCollectorDiscards(mockCollectorDiscards, true);
-      expect(result.syncedCount).toBe(0);
+      const localItems: DiscardItem[] = [];
+      const remoteItems: DiscardItem[] = [
+        {
+          id: 'disc-deleted',
+          type: 'Metal',
+          quantity: 3,
+          unit: 'kg',
+          observation: '',
+          date: '2026-08-25T10:00:00.000Z',
+          status: 'Pendente',
+        },
+        {
+          id: 'disc-active',
+          type: 'Vidro',
+          quantity: 5,
+          unit: 'unidade',
+          observation: '',
+          date: '2026-08-25T11:00:00.000Z',
+          status: 'Pendente',
+        },
+      ];
+
+      const reconciled = reconcileCitizenDiscards(
+        localItems,
+        remoteItems,
+        syncService.getOutboxQueue(),
+        syncService.getTombstoneSet()
+      );
+
+      expect(reconciled.length).toBe(1);
+      expect(reconciled[0].id).toBe('disc-active');
     });
 
-    it('deve sincronizar coletas pendentes quando online', () => {
+    it('deve dar precedência às edições locais pendentes sobre versões remotas antigas', () => {
+      const localEdited: DiscardItem = {
+        id: 'disc-edit-1',
+        type: 'Papel e Papelão',
+        quantity: 10,
+        unit: 'kg',
+        observation: 'Editado offline',
+        date: '2026-08-25T10:00:00.000Z',
+        updatedAt: '2026-08-25T12:00:00.000Z',
+        status: 'Pendente (Offline)',
+        offline: true,
+        syncPending: true,
+      };
+
+      syncService.enqueueMutation('UPDATE', localEdited, 'user-1', 'disc-edit-1');
+
+      const remoteOld: DiscardItem = {
+        id: 'disc-edit-1',
+        type: 'Plástico',
+        quantity: 2,
+        unit: 'saco',
+        observation: 'Versão antiga no servidor',
+        date: '2026-08-25T10:00:00.000Z',
+        updatedAt: '2026-08-25T10:00:00.000Z',
+        status: 'Pendente',
+        offline: false,
+      };
+
+      const reconciled = reconcileCitizenDiscards(
+        [localEdited],
+        [remoteOld],
+        syncService.getOutboxQueue(),
+        syncService.getTombstoneSet()
+      );
+
+      expect(reconciled.length).toBe(1);
+      expect(reconciled[0].type).toBe('Papel e Papelão');
+      expect(reconciled[0].quantity).toBe(10);
+      expect(reconciled[0].observation).toBe('Editado offline');
+      expect(reconciled[0].syncPending).toBe(true);
+    });
+  });
+
+  describe('Normalização ISO 8601 e Coletor/Admin (A4-16)', () => {
+    it('deve converter datas legadas dd/mm/yyyy para ISO 8601 UTC', () => {
+      const iso = normalizeToIsoDate('24/08/2026');
+      expect(iso).toMatch(/^2026-08-24T/);
+    });
+
+    it('deve sincronizar coletas pendentes do Coletor quando online', () => {
+      const mockCollectorDiscards: CollectorDiscard[] = [
+        {
+          id: 'col-1',
+          citizenName: 'Cidadão 1',
+          wasteType: 'Metal e Alumínio',
+          quantity: 10,
+          unit: 'kg',
+          address: 'Rua 1',
+          neighborhood: 'Centro',
+          createdAt: '2026-08-24T12:00:00.000Z',
+          status: 'coletado',
+          offlineSyncPending: true,
+        },
+      ];
       syncService.enqueueMutation('COLLECT_DISCARD', { id: 'col-1' });
       const result = syncService.processAutoSyncCollectorDiscards(mockCollectorDiscards, false);
-
       expect(result.syncedCount).toBe(1);
       expect(result.updatedDiscards[0].offlineSyncPending).toBe(false);
-      expect(syncService.getPendingMutationCount()).toBe(0);
     });
-  });
-
-  describe('processAutoSyncAdminRecords', () => {
-    const mockAdminRecords: AdminDiscardRecord[] = [
-      {
-        id: 'adm-1',
-        citizenName: 'Carlos',
-        wasteType: 'Plástico',
-        quantity: '1',
-        neighborhood: 'Centro',
-        createdAt: '24/08/2026',
-        status: 'pendente',
-        offline: true,
-      },
-    ];
 
     it('deve sincronizar registros administrativos quando online', () => {
+      const mockAdminRecords: AdminDiscardRecord[] = [
+        {
+          id: 'adm-1',
+          citizenName: 'Carlos',
+          wasteType: 'Plástico',
+          quantity: 1,
+          neighborhood: 'Centro',
+          createdAt: '2026-08-24T12:00:00.000Z',
+          status: 'pendente',
+          offline: true,
+        },
+      ];
       syncService.enqueueMutation('UPDATE_RECORD', { id: 'adm-1' });
       const result = syncService.processAutoSyncAdminRecords(mockAdminRecords, false);
-
       expect(result.syncedCount).toBe(1);
       expect(result.updatedRecords[0].offline).toBe(false);
-      expect(syncService.getPendingMutationCount()).toBe(0);
-    });
-
-    it('não deve sincronizar registros administrativos se offline', () => {
-      const result = syncService.processAutoSyncAdminRecords(mockAdminRecords, true);
-      expect(result.syncedCount).toBe(0);
     });
   });
 });

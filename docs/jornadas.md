@@ -10,16 +10,16 @@ Este documento descreve as jornadas do usuário nos três aplicativos do ecossis
 
 ### Fluxo de Uso:
 1. **Autenticação com Google ou E-mail:** O cidadão pode entrar rapidamente clicando em *"Continuar com o Google"* ou usando seu e-mail e senha. Se esquecer a senha, clica em *"Esqueci minha senha"* e recebe o código de verificação (`ECO-XXXX`) para redefinição imediata.
-2. **Registro de Descarte com CEP/GPS e Foto:**
+2. **Registro de Descarte com CEP, Coordenadas de Referência e Foto:**
    - Clica em *"Registrar descarte"*.
-   - Seleciona o material (Plástico, Papelão, Vidro, Metal, Eletrônicos, Óleo, etc.) e informa a quantidade em volumes.
-   - Digita o CEP para autopreencher a rua e o bairro em Cáceres - MT (ViaCEP) ou clica em *"📍 Usar minha localização atual (GPS)"*.
+   - Seleciona o material (Plástico, Papelão, Vidro, Metal, Eletrônicos, Óleo, etc.), informa a quantidade numérica (> 0) e seleciona a unidade de medida (`kg`, `unidade`, `saco`, `litro`).
+   - Digita o CEP para autopreencher a rua e o bairro em Cáceres - MT (ViaCEP) ou clica em *"📍 Usar coordenadas de referência do bairro"*.
    - Anexa uma foto da câmera ou seleciona uma amostra representativa.
-   - Salva o descarte: se estiver sem internet, o app salva localmente como `Pendente (Offline)` e o banner avisa que a sincronização ocorrerá automaticamente ao reconectar.
+   - Salva o descarte: se estiver sem internet, o app salva localmente com `syncPending: true` na fila persistente (`outboxQueue`) e o banner avisa que a sincronização ocorrerá automaticamente ao reconectar.
    - O descarte é salvo no Cloud Firestore (`saveCitizenDiscard`), transmitido no barramento (0ms) e enviado ao backend central.
-3. **Consulta de Histórico, Detalhes e Exclusão:**
+3. **Consulta de Histórico, Detalhes, Edição e Exclusão:**
    - Acessa a tela de histórico e filtra por status (*Todos*, *Pendentes*, *Coletados*) ou busca por material/endereço.
-   - Toca no descarte para abrir a tela **Detalhes do Descarte**, onde pode inspecionar os dados ou cancelar/excluir a solicitação.
+   - Toca no descarte para abrir a tela **Detalhes do Descarte**, onde pode inspecionar os dados, **editar o registro** (preservando o mesmo `id` original) ou cancelar/excluir a solicitação (com suporte a tombstones offline).
 4. **Consulta de Ecopontos (PEVs) & Navegação GPS:** Acessa a lista de pontos de entrega voluntária de Cáceres com cálculo de distância em km (Haversine) e aciona *"🗺️ Traçar Rota GPS"* (Google Maps / Waze).
 5. **Dicas de Sustentabilidade:** Lê recomendações práticas sobre separação correta de resíduos e conservação do Pantanal.
 6. **Central de Notificações:** Clica no sino 🔔 para ver avisos em tempo real quando suas coletas forem concluídas pelo coletor.

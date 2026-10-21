@@ -9,11 +9,13 @@ import {
   requestPasswordReset,
   resetPassword as resetUserPassword,
 } from '../../../shared/services/authService';
+import { securityService } from '../../../shared/services/securityService';
 
 /**
  * Controlador de Autenticação da API EcoSmart.
  * Responsável por orquestrar o login e registro de usuários
- * com isolamento estrito de bancos e repositórios entre Cidadão/Coletor e Administrador.
+ * com isolamento estrito de bancos e repositórios entre Cidadão/Coletor e Administrador,
+ * bem como hashing seguro de credenciais (A4-11).
  */
 export class AuthController {
   private formatUsers(users: DbUser[]): RegisteredUser[] {
@@ -21,7 +23,9 @@ export class AuthController {
       id: u.id,
       name: u.nome,
       email: u.email,
-      password: u.senha_hash,
+      passwordHash: u.senha_hash?.includes(':')
+        ? u.senha_hash
+        : securityService.hashPassword(u.senha_hash || ''),
       perfil: u.perfil,
       telefone: u.telefone,
       cep: u.cep,
@@ -43,7 +47,9 @@ export class AuthController {
       id: a.id,
       name: a.nome,
       email: a.email,
-      password: a.senha_hash,
+      passwordHash: a.senha_hash?.includes(':')
+        ? a.senha_hash
+        : securityService.hashPassword(a.senha_hash || ''),
       perfil: 'admin',
       telefone: a.telefone,
       cep: a.cep,
@@ -65,7 +71,13 @@ export class AuthController {
    * - Administradores -> Base isolada do admin (adminRepository)
    * - Usuários Comuns (Cidadão/Coletor) -> Base principal (userRepository)
    */
-  async login(req: { body: { email: string; password: string; expectedRole: 'cidadao' | 'coletor' | 'admin' } }) {
+  async login(req: {
+    body: {
+      email: string;
+      password: string;
+      expectedRole: 'cidadao' | 'coletor' | 'admin';
+    };
+  }) {
     const { email, password, expectedRole } = req.body;
 
     if (expectedRole === 'admin') {
@@ -89,23 +101,38 @@ export class AuthController {
   }
 
   /**
-   * Cadastra um novo usuário no sistema com gravação direcionada e isolada:
-   * - Admin -> adminRepository na base administrativa
+   * Cadastra um novo usuário no sistema com gravação direcionada e isolada (com senha em hash):
+   * - Admin -> adminRepository na base administrativa (requer autorização via Custom Claims/servidor)
    * - Cidadão/Coletor -> userRepository na base geral
    */
-  async register(req: { body: { name: string; email: string; password: string; role: 'cidadao' | 'coletor' | 'admin'; accessCode?: string } }) {
+  async register(req: {
+    body: {
+      name: string;
+      email: string;
+      password: string;
+      role: 'cidadao' | 'coletor' | 'admin';
+      accessCode?: string;
+    };
+  }) {
     const { name, email, password, role, accessCode } = req.body;
 
     if (role === 'admin') {
       const admins = await adminRepository.getAllAdmins();
       const formattedAdmins = this.formatAdmins(admins);
-      const result = registerUser(name, email, password, 'admin', accessCode, formattedAdmins);
+      const result = registerUser(
+        name,
+        email,
+        password,
+        'admin',
+        accessCode,
+        formattedAdmins
+      );
 
       if (result.success && result.user) {
         const createdAdmin = await adminRepository.createAdmin({
           nome: name,
           email: email,
-          senha_hash: password,
+          senha_hash: securityService.hashPassword(password),
           perfil: 'admin',
         });
         await adminRepository.logAction({
@@ -121,13 +148,20 @@ export class AuthController {
 
     const allUsers = await userRepository.getAll();
     const formattedUsers = this.formatUsers(allUsers);
-    const result = registerUser(name, email, password, role, accessCode, formattedUsers);
+    const result = registerUser(
+      name,
+      email,
+      password,
+      role,
+      accessCode,
+      formattedUsers
+    );
 
     if (result.success && result.user) {
       await userRepository.create({
         nome: name,
         email: email,
-        senha_hash: password,
+        senha_hash: securityService.hashPassword(password),
         perfil: role,
       });
     }
@@ -149,7 +183,9 @@ export class AuthController {
       if (result.success && result.code) {
         const admin = await adminRepository.getAdminByEmail(email);
         if (admin) {
-          await adminRepository.updateAdmin(admin.id, { codigo_recuperacao: result.code });
+          await adminRepository.updateAdmin(admin.id, {
+            codigo_recuperacao: result.code,
+          });
         }
       }
       return result;
@@ -172,7 +208,9 @@ export class AuthController {
   /**
    * Redefine a senha validando o código temporário persistido no repositório correto.
    */
-  async resetPassword(req: { body: { email: string; code: string; newPassword: string } }) {
+  async resetPassword(req: {
+    body: { email: string; code: string; newPassword: string };
+  }) {
     const { email, code, newPassword } = req.body;
 
     // Tenta primeiro no repositório de administradores isolado
@@ -190,7 +228,7 @@ export class AuthController {
 
       if (result.success) {
         await adminRepository.updateAdmin(adminUser.id, {
-          senha_hash: newPassword.trim(),
+          senha_hash: securityService.hashPassword(newPassword.trim()),
           codigo_recuperacao: undefined,
         });
       }
@@ -215,7 +253,7 @@ export class AuthController {
 
     if (result.success) {
       await userRepository.update(targetUser.id, {
-        senha_hash: newPassword.trim(),
+        senha_hash: securityService.hashPassword(newPassword.trim()),
         codigo_recuperacao: undefined,
       });
     }

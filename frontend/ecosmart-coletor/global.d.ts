@@ -3,6 +3,7 @@
 declare const process: {
   env: {
     NODE_ENV?: string;
+    ADMIN_SERVER_CLAIM_TOKEN?: string;
     EXPO_PUBLIC_FIREBASE_API_KEY?: string;
     EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN?: string;
     EXPO_PUBLIC_FIREBASE_PROJECT_ID?: string;
@@ -15,7 +16,9 @@ declare const process: {
     EXPO_PUBLIC_FIREBASE_AUTH_EMAIL?: string;
     EXPO_PUBLIC_FIREBASE_AUTH_PASSWORD?: string;
     EXPO_PUBLIC_SYNC_SERVER_URL?: string;
+    EXPO_PUBLIC_API_URL?: string;
     REACT_NATIVE_API_URL?: string;
+    [key: string]: string | undefined;
   };
 };
 

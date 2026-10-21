@@ -13,7 +13,7 @@ describe('TipsScreen Cidadão', () => {
 
   it('deve permitir buscar dicas por palavra-chave e limpar busca', () => {
     const onBack = jest.fn();
-    const { getByPlaceholderText, getByText, queryByText } = render(<TipsScreen onBack={onBack} />);
+    const { getByPlaceholderText, getByText } = render(<TipsScreen onBack={onBack} />);
 
     const searchInput = getByPlaceholderText('🔍 Buscar dicas por assunto, material...');
     fireEvent.changeText(searchInput, 'Óleo');

@@ -1,6 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -19,15 +18,23 @@ import { LoadingScreen } from './src/components/LoadingScreen';
 import { FeedbackMessage } from './src/components/FeedbackMessage';
 
 // Modelos, Dados e Serviços
-import { collectionPoints, tips, wasteTypes } from './src/data/mockData';
 import { STORAGE_KEYS } from './src/services/storageKeys';
-import { ALL_DEFAULT_USERS, RegisteredUser } from './src/services/authService';
+import {
+  RegisteredUser,
+  sanitizeUsersForStorage,
+} from './src/services/authService';
+import { securityService } from './src/services/securityService';
 import { AppNotification, DiscardItem, Usuario } from './src/models';
 import { useNetworkStatus } from './src/hooks/useNetworkStatus';
 import { OfflineBanner } from './src/components/OfflineBanner';
-import { autoSyncService, normalizeToCitizenDiscard } from './src/services/syncService';
+import {
+  autoSyncService,
+  normalizeToCitizenDiscard,
+  reconcileCitizenDiscards,
+} from './src/services/syncService';
 import { firebaseService } from './src/services/firebaseService';
 import { crossAppSync } from './src/services/crossAppSync';
+import { validationUtils } from './src/utils/validationUtils';
 import {
   createNotification,
   getUnreadNotificationCount,
@@ -35,12 +42,21 @@ import {
   markAllNotificationsAsRead,
 } from './src/services/notificationService';
 
-/** Telas navegáveis disponíveis no fluxo do Cidadão */
-type Screen = 'home' | 'register' | 'history' | 'details' | 'tips' | 'points' | 'profile';
+/** Telas navegáveis disponíveis no fluxo do Cidadão (incluindo rota 'edit' para A4-01) */
+type Screen =
+  | 'home'
+  | 'register'
+  | 'edit'
+  | 'history'
+  | 'details'
+  | 'tips'
+  | 'points'
+  | 'profile';
 
 /**
  * Componente Raiz do aplicativo EcoSmart Cidadão.
- * Gerencia autenticação, cadastro de descartes, histórico, pontos de coleta e dicas com sincronização em tempo real.
+ * Gerencia autenticação segura, CRUD completo de descartes (Create, Read, Update, Delete),
+ * fila offline persistente (Outbox + Tombstones) e conciliação sem sobrescrita (Last-Write-Wins).
  */
 export default function App() {
   // --- Estados de Navegação e Dados ---
@@ -49,16 +65,59 @@ export default function App() {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<Usuario | null>(null);
   const [registeredUsers, setRegisteredUsers] = useState<RegisteredUser[]>([]);
-  const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<AppNotification[]>(
+    INITIAL_NOTIFICATIONS
+  );
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [feedback, setFeedback] = useState<{
     message: string;
     variant: 'success' | 'info' | 'warning' | 'danger';
   } | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isReady, setIsReady] = useState(false);
 
-  // Hook de detecção de conectividade
-  const { isOffline } = useNetworkStatus();
+  // Hook reativo de detecção de conectividade e saúde do servidor (Health Check ativo)
+  const { isOffline, isServerReachable } = useNetworkStatus();
+
+  /**
+   * Concilia descartes locais e remotos respeitando a fila offline persistente e tombstones (A4-05 / A4-06).
+   * Dá precedência a mutações locais pendentes sobre versões remotas desatualizadas.
+   */
+  const syncAndReconcileUserDiscards = useCallback(
+    async (user: Usuario, currentLocalItems?: DiscardItem[]) => {
+      try {
+        const outbox = await autoSyncService.loadOutboxQueue(user.id);
+        const tombstones = autoSyncService.getTombstoneSet();
+
+        let localList: DiscardItem[] = currentLocalItems || [];
+        if (!currentLocalItems) {
+          const storedUserDiscards = await AsyncStorage.getItem(
+            `${STORAGE_KEYS.CIDADAO.DISCARDS}_${user.id}`
+          );
+          localList = storedUserDiscards
+            ? (JSON.parse(storedUserDiscards) as any[]).map(normalizeToCitizenDiscard)
+            : [];
+        }
+
+        const remoteRaw = await crossAppSync.fetchDiscardsByUser(user.id, user.email);
+        const remoteList = Array.isArray(remoteRaw)
+          ? remoteRaw.map(normalizeToCitizenDiscard)
+          : [];
+
+        const reconciled = reconcileCitizenDiscards(
+          localList,
+          remoteList,
+          outbox,
+          tombstones
+        );
+        setItems(reconciled);
+        return reconciled;
+      } catch (e) {
+        return currentLocalItems || [];
+      }
+    },
+    []
+  );
 
   // --- Efeito 1: Carregar dados salvos no dispositivo e restaurar sessão do Cidadão ---
   useEffect(() => {
@@ -71,7 +130,7 @@ export default function App() {
 
         let parsedUsers: RegisteredUser[] = [];
         if (storedUsers) {
-          parsedUsers = JSON.parse(storedUsers);
+          parsedUsers = sanitizeUsersForStorage(JSON.parse(storedUsers));
           setRegisteredUsers(parsedUsers);
         }
 
@@ -79,7 +138,9 @@ export default function App() {
           const session = JSON.parse(storedSession);
           if (session?.user && session.user.perfil === 'cidadao') {
             const existingInUsers = parsedUsers.find(
-              (u) => u.email.trim().toLowerCase() === session.user.email.trim().toLowerCase()
+              (u) =>
+                u.email.trim().toLowerCase() ===
+                session.user.email.trim().toLowerCase()
             );
 
             const activeUser: Usuario = existingInUsers
@@ -99,26 +160,18 @@ export default function App() {
                 }
               : session.user;
 
+            crossAppSync.setAuthSession(activeUser, session.token);
             setCurrentUser(activeUser);
 
-            // Carrega exclusivamente os descartes do usuário ativo
-            const [storedUserDiscards, userLiveDiscards] = await Promise.all([
-              AsyncStorage.getItem(`${STORAGE_KEYS.CIDADAO.DISCARDS}_${activeUser.id}`),
-              crossAppSync.fetchDiscardsByUser(activeUser.id, activeUser.email),
-            ]);
-
-            const liveList = Array.isArray(userLiveDiscards) ? userLiveDiscards.map(normalizeToCitizenDiscard) : null;
-            const localList: DiscardItem[] = storedUserDiscards
-              ? (JSON.parse(storedUserDiscards) as any[]).map(normalizeToCitizenDiscard)
-              : [];
-            const mergedDiscards = liveList !== null && liveList.length > 0 ? liveList : localList;
-            setItems(mergedDiscards);
+            await syncAndReconcileUserDiscards(activeUser);
 
             firebaseService
               .getUserByEmail(activeUser.email)
               .then((cloudUser) => {
                 if (cloudUser) {
-                  setCurrentUser((prev) => (prev ? { ...prev, ...cloudUser } : cloudUser));
+                  setCurrentUser((prev) =>
+                    prev ? { ...prev, ...cloudUser } : cloudUser
+                  );
                 }
               })
               .catch(() => {});
@@ -129,14 +182,14 @@ export default function App() {
           setItems([]);
         }
       } catch (error) {
-        console.log('Erro ao carregar dados locais do cidadão:', error);
+        console.warn('Falha ao carregar dados locais do cidadão:', error);
       } finally {
         setIsReady(true);
       }
     };
 
     loadAppData();
-  }, []);
+  }, [syncAndReconcileUserDiscards]);
 
   // --- Efeito 2: Salvar descartes no AsyncStorage isolado por usuário ---
   useEffect(() => {
@@ -144,26 +197,31 @@ export default function App() {
 
     const saveDiscards = async () => {
       try {
-        await AsyncStorage.setItem(
-          `${STORAGE_KEYS.CIDADAO.DISCARDS}_${currentUser.id}`,
-          JSON.stringify(items)
-        );
-        await AsyncStorage.setItem(STORAGE_KEYS.CIDADAO.DISCARDS, JSON.stringify(items));
+        const serialized = JSON.stringify(items);
+        await Promise.all([
+          AsyncStorage.setItem(
+            `${STORAGE_KEYS.CIDADAO.DISCARDS}_${currentUser.id}`,
+            serialized
+          ),
+          AsyncStorage.setItem(STORAGE_KEYS.CIDADAO.DISCARDS, serialized),
+        ]);
       } catch (error) {
-        console.log('Erro ao salvar descartes locais:', error);
+        console.warn('Falha ao salvar descartes locais:', error);
       }
     };
 
     saveDiscards();
   }, [items, isReady, currentUser]);
 
-  // --- Efeito: Barramento de Eventos em Tempo Real (0ms) ---
+  // --- Efeito 3: Barramento de Eventos em Tempo Real (0ms) ---
   useEffect(() => {
     const unsubscribe = crossAppSync.onSyncEvent((event) => {
       if (event.type === 'DISCARD_COLLECTED' && event.payload) {
         setItems((prev) =>
           prev.map((item) =>
-            item.id === event.payload.id ? { ...item, status: 'Coletado' } : item
+            item.id === event.payload.id
+              ? { ...item, status: 'Coletado', offline: false, syncPending: false }
+              : item
           )
         );
         const notif = createNotification(
@@ -172,6 +230,15 @@ export default function App() {
           'collection'
         );
         setNotifications((n) => [notif, ...n]);
+      } else if (
+        event.type === 'DISCARD_UPDATED' &&
+        event.payload &&
+        event.senderApp !== 'cidadao'
+      ) {
+        const updated = normalizeToCitizenDiscard(event.payload);
+        setItems((prev) =>
+          prev.map((item) => (item.id === updated.id ? { ...item, ...updated } : item))
+        );
       } else if (event.type === 'DISCARD_DELETED' && event.payload) {
         setItems((prev) => prev.filter((item) => item.id !== event.payload.id));
       }
@@ -180,291 +247,561 @@ export default function App() {
     return unsubscribe;
   }, []);
 
-  // --- Efeito 3: Sincronização Periódica de Descartes Apenas do Cidadão Logado ---
-  useEffect(() => {
-    if (!isReady || !currentUser) return;
-
-    const syncCrossApp = async () => {
-      try {
-        const liveDiscards = await crossAppSync.fetchDiscardsByUser(currentUser.id, currentUser.email);
-        if (liveDiscards && Array.isArray(liveDiscards)) {
-          setItems((prev) => {
-            const map = new Map<string, DiscardItem>();
-            prev.forEach((item) => map.set(item.id, item));
-            let hasChanges = false;
-
-            liveDiscards.map(normalizeToCitizenDiscard).forEach((remoteItem) => {
-              if (!map.has(remoteItem.id)) {
-                hasChanges = true;
-                map.set(remoteItem.id, remoteItem);
-              } else {
-                const current = map.get(remoteItem.id)!;
-                const isCollected = current.status === 'Coletado' || remoteItem.status === 'Coletado';
-                const finalStatus = isCollected ? 'Coletado' : remoteItem.status;
-                if (current.status !== finalStatus) {
-                  hasChanges = true;
-                  map.set(remoteItem.id, { ...current, status: finalStatus });
-                }
-              }
-            });
-
-            return hasChanges ? Array.from(map.values()) : prev;
-          });
-        }
-      } catch (e) {}
-    };
-
-    const intervalId = setInterval(syncCrossApp, 1500);
-    return () => clearInterval(intervalId);
-  }, [isReady, currentUser]);
-
-  // --- Efeito 4: Salvar lista de usuários cadastrados localmente ---
+  // --- Efeito 4: Salvar lista de usuários cadastrados localmente sem senhas em texto simples (A4-11) ---
   useEffect(() => {
     if (!isReady) return;
 
     const saveUsers = async () => {
       try {
-        await AsyncStorage.setItem(STORAGE_KEYS.CIDADAO.USERS, JSON.stringify(registeredUsers));
-        await AsyncStorage.setItem(STORAGE_KEYS.SHARED.USERS, JSON.stringify(registeredUsers));
+        const safeUsers = sanitizeUsersForStorage(registeredUsers);
+        const serialized = JSON.stringify(safeUsers);
+        await Promise.all([
+          AsyncStorage.setItem(STORAGE_KEYS.CIDADAO.USERS, serialized),
+          AsyncStorage.setItem(STORAGE_KEYS.SHARED.USERS, serialized),
+        ]);
       } catch (error) {
-        console.log('Erro ao salvar usuários locais:', error);
+        console.warn('Falha ao salvar usuários locais:', error);
       }
     };
 
     saveUsers();
   }, [registeredUsers, isReady]);
 
-  // --- Efeito 5: Auto-Sincronização em Segundo Plano ao Recuperar Conexão ---
-  useEffect(() => {
-    if (!isReady || isOffline) return;
+  // --- Efeito 5: Sincronização Real e Reenvio Automático da Fila Offline ao Reestabelecer Conexão / Saúde da API (A4-03, A4-04, A4-06, A4-07) ---
+  const hasPendingOfflineItems = useMemo(
+    () =>
+      items.some(
+        (item) =>
+          item.syncPending || item.offline || item.status === 'Pendente (Offline)'
+      ),
+    [items]
+  );
 
-    const { updatedDiscards, syncedCount } = autoSyncService.processAutoSyncCitizenDiscards(
-      items,
-      isOffline
-    );
+  const flushOfflineQueueAndReconcile = useCallback(async () => {
+    if (!isReady || isOffline || isServerReachable === false || !currentUser) {
+      return;
+    }
+
+    const { updatedDiscards, syncedCount, failedCount } =
+      await autoSyncService.processAutoSyncCitizenDiscards(items, isOffline, {
+        userId: currentUser.id,
+      });
 
     if (syncedCount > 0) {
       setItems(updatedDiscards);
       const newNotif = createNotification(
         'Sincronização Concluída',
-        `${syncedCount} ${syncedCount === 1 ? 'descarte foi sincronizado' : 'descartes foram sincronizados'} com sucesso com o servidor central.`,
+        `${syncedCount} ${
+          syncedCount === 1
+            ? 'operação pendente foi sincronizada'
+            : 'operações pendentes foram sincronizadas'
+        } com sucesso na nuvem.`,
         'sync'
       );
       setNotifications((prev) => [newNotif, ...prev]);
+      setFeedback({
+        message: '✓ Sincronizado na nuvem com sucesso.',
+        variant: 'success',
+      });
+    } else if (failedCount > 0) {
+      setFeedback({
+        message:
+          '⏳ Salvo localmente (offline): servidor indisponível, tentativa agendada na fila.',
+        variant: 'warning',
+      });
     }
-  }, [isOffline, isReady]);
 
-  /** Adiciona um novo descarte à lista em memória e transmite em tempo real para todos os apps e Firebase */
-  const addDiscard = async (item: DiscardItem) => {
-    const itemWithOwner: DiscardItem = {
-      ...item,
-      userId: currentUser?.id,
-      citizenId: currentUser?.id,
-      citizenEmail: currentUser?.email,
+    await syncAndReconcileUserDiscards(currentUser, updatedDiscards);
+  }, [
+    currentUser,
+    isOffline,
+    isReady,
+    isServerReachable,
+    items,
+    syncAndReconcileUserDiscards,
+  ]);
+
+  useEffect(() => {
+    if (!isReady || isOffline || isServerReachable === false || !currentUser) {
+      return;
+    }
+
+    let cancelled = false;
+    const runSync = async () => {
+      if (cancelled) return;
+      await flushOfflineQueueAndReconcile();
     };
-    setItems((prev) => [itemWithOwner, ...prev]);
-    setFeedback({
-      message: item.offline
-        ? '✓ Descarte salvo offline. Ele será sincronizado quando a conexão voltar.'
-        : '✓ Descarte registrado com sucesso.',
-      variant: item.offline ? 'warning' : 'success',
+
+    runSync();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isOffline,
+    isServerReachable,
+    isReady,
+    currentUser?.id,
+    hasPendingOfflineItems,
+  ]);
+
+  // --- Efeito 5.1: Reenvio imediato quando o Health Check do servidor emite HEALTH_RESTORED ---
+  useEffect(() => {
+    if (!isReady || !currentUser) return;
+    const unsubscribe = crossAppSync.onSyncEvent((event) => {
+      if (event.type === 'HEALTH_RESTORED') {
+        flushOfflineQueueAndReconcile().catch(() => {});
+      }
     });
+    return unsubscribe;
+  }, [isReady, currentUser, flushOfflineQueueAndReconcile]);
 
-    // 1. Persiste diretamente no Firebase Cloud Firestore com o dono correto
-    await firebaseService.saveCitizenDiscard(itemWithOwner, currentUser || undefined).catch((err) => {
-      console.log('Firebase discard save notice:', err);
-    });
+  /** Pull-to-refresh manual da lista de descartes (A4-06) */
+  const handleRefreshDiscards = useCallback(async () => {
+    if (!currentUser) return;
+    setIsRefreshing(true);
+    try {
+      if (!isOffline) {
+        const { updatedDiscards } =
+          await autoSyncService.processAutoSyncCitizenDiscards(items, isOffline, {
+            userId: currentUser.id,
+          });
+        await syncAndReconcileUserDiscards(currentUser, updatedDiscards);
+      } else {
+        await syncAndReconcileUserDiscards(currentUser, items);
+      }
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [currentUser, isOffline, items, syncAndReconcileUserDiscards]);
 
-    // 2. Transmite através do canal de sincronização (Sync Server e Event Bus)
-    await crossAppSync.postNewDiscard({
-      ...itemWithOwner,
-      userId: currentUser?.id,
-      citizenId: currentUser?.id,
-      citizenName: currentUser?.nome || 'Maria Cidadã Pantaneira',
-      citizenEmail: currentUser?.email || 'maria@gmail.com',
-      wasteType: item.type,
-      createdAt: item.date,
-      status: 'pendente',
-    });
+  /**
+   * Adiciona um novo descarte com confirmação real de persistência local e remota (A4-03, A4-04, A4-07, A4-08).
+   */
+  const addDiscard = useCallback(
+    async (item: DiscardItem) => {
+      const nowIso = new Date().toISOString();
+      const formattedQty = validationUtils.formatQuantityWithUnit(
+        item.quantity,
+        item.unit
+      );
+      const initialPendingItem: DiscardItem = {
+        ...item,
+        userId: currentUser?.id,
+        citizenId: currentUser?.id,
+        citizenEmail: currentUser?.email,
+        citizenName: currentUser?.nome,
+        createdAt: item.createdAt || nowIso,
+        updatedAt: nowIso,
+        offline: true,
+        syncPending: true,
+        status: 'Pendente (Offline)',
+      };
 
-    const notifTitle = item.offline ? 'Descarte Salvo Offline' : 'Descarte Cadastrado';
-    const notifMsg = item.offline
-      ? `Seu descarte de ${item.type} (${item.quantity}) foi guardado localmente e sincronizará quando houver internet.`
-      : `Seu descarte de ${item.type} (${item.quantity}) em Cáceres - MT foi registrado e já está visível para os coletores.`;
+      // 1. Grava primeiro localmente e enfileira no Outbox persistente (A4-04)
+      autoSyncService.enqueueMutation(
+        'CREATE',
+        initialPendingItem,
+        currentUser?.id,
+        initialPendingItem.id
+      );
 
-    const newNotif = createNotification(notifTitle, notifMsg, item.offline ? 'sync' : 'discard');
-    setNotifications((prev) => [newNotif, ...prev]);
-  };
+      let remoteConfirmed = false;
+      if (!isOffline) {
+        const syncRes = await crossAppSync.postNewDiscard(
+          {
+            ...initialPendingItem,
+            userId: currentUser?.id,
+            citizenId: currentUser?.id,
+            citizenName: currentUser?.nome || 'Maria Cidadã Pantaneira',
+            citizenEmail: currentUser?.email || 'maria@gmail.com',
+            wasteType: item.type,
+            createdAt: initialPendingItem.createdAt,
+            status: 'pendente',
+          },
+          'cidadao'
+        );
+        remoteConfirmed = Boolean(syncRes.remoteSynced || syncRes.success);
+      }
 
-  /** Apaga um descarte e propaga a exclusão em tempo real */
-  const handleDeleteDiscard = async (id: string) => {
-    const target = items.find((i) => i.id === id);
-    setItems((prev) => prev.filter((i) => i.id !== id));
-    await crossAppSync.deleteDiscard(id);
-    setSelectedItemId(null);
-    setScreen('history');
+      if (remoteConfirmed) {
+        await autoSyncService.removeMutationsByDiscardId(
+          initialPendingItem.id,
+          undefined,
+          currentUser?.id
+        );
+      }
 
-    const notif = createNotification(
-      'Descarte Excluído',
-      `O registro de descarte de ${target?.type || 'material'} foi apagado com sucesso.`,
-      'discard'
-    );
-    setNotifications((prev) => [notif, ...prev]);
-    setFeedback({ message: '✓ Descarte excluído com sucesso.', variant: 'success' });
-  };
+      const finalItem: DiscardItem = {
+        ...initialPendingItem,
+        status: remoteConfirmed ? 'Pendente' : 'Pendente (Offline)',
+        offline: !remoteConfirmed,
+        syncPending: !remoteConfirmed,
+      };
 
-  /** Atualiza o perfil do cidadão */
-  const handleUpdateUser = async (updatedUser: Usuario) => {
+      setItems((prev) => [
+        finalItem,
+        ...prev.filter((existing) => existing.id !== finalItem.id),
+      ]);
+
+      setFeedback({
+        message: remoteConfirmed
+          ? '✓ Sincronizado na nuvem: descarte registrado com sucesso.'
+          : '⏳ Salvo localmente (offline): será sincronizado quando houver conexão com o servidor.',
+        variant: remoteConfirmed ? 'success' : 'warning',
+      });
+
+      const notifTitle = remoteConfirmed
+        ? 'Sincronizado na nuvem'
+        : 'Salvo localmente (offline)';
+      const notifMsg = remoteConfirmed
+        ? `Seu descarte de ${item.type} (${formattedQty}) em Cáceres - MT foi sincronizado na nuvem e já está visível para os coletores.`
+        : `Seu descarte de ${item.type} (${formattedQty}) foi salvo localmente (offline) na fila persistente e sincronizará assim que o servidor responder.`;
+
+      const newNotif = createNotification(
+        notifTitle,
+        notifMsg,
+        remoteConfirmed ? 'discard' : 'sync'
+      );
+      setNotifications((prev) => [newNotif, ...prev]);
+    },
+    [currentUser, isOffline]
+  );
+
+  /**
+   * Atualiza um descarte existente preservando o mesmo ID original e sincronizando com PUT /api/discards/:id (A4-01, A4-02, A4-04, A4-07).
+   */
+  const handleUpdateDiscard = useCallback(
+    async (updatedItem: DiscardItem) => {
+      const nowIso = new Date().toISOString();
+      const formattedQty = validationUtils.formatQuantityWithUnit(
+        updatedItem.quantity,
+        updatedItem.unit
+      );
+      const pendingUpdated: DiscardItem = {
+        ...updatedItem,
+        id: updatedItem.id, // Preserva estritamente o ID original (A4-01)
+        userId: currentUser?.id || updatedItem.userId,
+        citizenId: currentUser?.id || updatedItem.citizenId,
+        citizenEmail: currentUser?.email || updatedItem.citizenEmail,
+        citizenName: currentUser?.nome || updatedItem.citizenName,
+        updatedAt: nowIso,
+        offline: true,
+        syncPending: true,
+        status:
+          updatedItem.status === 'Coletado' ? 'Coletado' : 'Pendente (Offline)',
+      };
+
+      // 1. Registra operação UPDATE na fila persistente antes da tentativa remota
+      autoSyncService.enqueueMutation(
+        'UPDATE',
+        pendingUpdated,
+        currentUser?.id,
+        pendingUpdated.id
+      );
+
+      let remoteConfirmed = false;
+      if (!isOffline) {
+        const updateRes = await crossAppSync.updateDiscard(
+          pendingUpdated.id,
+          {
+            ...pendingUpdated,
+            wasteType: pendingUpdated.type,
+          },
+          'cidadao'
+        );
+        remoteConfirmed = Boolean(updateRes.remoteSynced || updateRes.success);
+      }
+
+      if (remoteConfirmed) {
+        await autoSyncService.removeMutationsByDiscardId(
+          pendingUpdated.id,
+          undefined,
+          currentUser?.id
+        );
+      }
+
+      const finalUpdated: DiscardItem = {
+        ...pendingUpdated,
+        status:
+          pendingUpdated.status === 'Coletado'
+            ? 'Coletado'
+            : remoteConfirmed
+            ? 'Pendente'
+            : 'Pendente (Offline)',
+        offline: !remoteConfirmed,
+        syncPending: !remoteConfirmed,
+      };
+
+      setItems((prev) =>
+        prev.map((item) => (item.id === finalUpdated.id ? finalUpdated : item))
+      );
+      setSelectedItemId(finalUpdated.id);
+
+      setFeedback({
+        message: remoteConfirmed
+          ? '✓ Sincronizado na nuvem: descarte atualizado com sucesso.'
+          : '⏳ Salvo localmente (offline): edição aguardando sincronização.',
+        variant: remoteConfirmed ? 'success' : 'warning',
+      });
+
+      const notif = createNotification(
+        remoteConfirmed ? 'Descarte Atualizado' : 'Edição Salva Offline',
+        remoteConfirmed
+          ? `As alterações no descarte de ${finalUpdated.type} (${formattedQty}) foram sincronizadas na nuvem.`
+          : `As alterações no descarte de ${finalUpdated.type} (${formattedQty}) foram salvas localmente na fila offline.`,
+        remoteConfirmed ? 'discard' : 'sync'
+      );
+      setNotifications((prev) => [notif, ...prev]);
+    },
+    [currentUser, isOffline]
+  );
+
+  /**
+   * Apaga um descarte com Tombstone offline e só remove a pendência após confirmação do servidor (A4-05, A4-07).
+   */
+  const handleDeleteDiscard = useCallback(
+    async (id: string) => {
+      const target = items.find((i) => i.id === id);
+
+      // 1. Oculta imediatamente da listagem e registra Tombstone + mutação DELETE persistente (A4-05)
+      setItems((prev) => prev.filter((i) => i.id !== id));
+      autoSyncService.enqueueMutation('DELETE', { id }, currentUser?.id, id);
+
+      let remoteDeleted = false;
+      if (!isOffline) {
+        remoteDeleted = await crossAppSync.deleteDiscard(
+          id,
+          'cidadao',
+          currentUser?.id
+        );
+      }
+
+      if (remoteDeleted) {
+        await autoSyncService.removeMutationsByDiscardId(
+          id,
+          'DELETE',
+          currentUser?.id
+        );
+        await autoSyncService.removeTombstone(id, currentUser?.id);
+      }
+
+      setSelectedItemId(null);
+      setScreen('history');
+
+      const notif = createNotification(
+        remoteDeleted ? 'Descarte Excluído' : 'Exclusão Pendente (Offline)',
+        remoteDeleted
+          ? `O registro de descarte de ${target?.type || 'material'} foi excluído e sincronizado na nuvem.`
+          : `O descarte de ${target?.type || 'material'} foi ocultado localmente e será removido da nuvem ao reconectar.`,
+        remoteDeleted ? 'discard' : 'sync'
+      );
+      setNotifications((prev) => [notif, ...prev]);
+      setFeedback({
+        message: remoteDeleted
+          ? '✓ Sincronizado na nuvem: descarte excluído com sucesso.'
+          : '⏳ Salvo localmente (offline): exclusão registrada na fila pendente.',
+        variant: remoteDeleted ? 'success' : 'warning',
+      });
+    },
+    [currentUser?.id, isOffline, items]
+  );
+
+  /** Atualiza o perfil do cidadão sem armazenar senha em texto puro (A4-11) */
+  const handleUpdateUser = useCallback(async (updatedUser: Usuario) => {
     setCurrentUser(updatedUser);
     setRegisteredUsers((prev) => {
       const emailLower = updatedUser.email.trim().toLowerCase();
-      const exists = prev.some((u) => u.email.trim().toLowerCase() === emailLower || u.id === updatedUser.id);
-      if (exists) {
-        return prev.map((u) =>
+      const exists = prev.some(
+        (u) =>
           u.email.trim().toLowerCase() === emailLower || u.id === updatedUser.id
-            ? {
-                ...u,
-                name: updatedUser.nome,
-                telefone: updatedUser.telefone,
-                cep: updatedUser.cep,
-                endereco: updatedUser.endereco,
-                numero: updatedUser.numero,
-                bairro: updatedUser.bairro,
-                cidade: updatedUser.cidade,
-                bio: updatedUser.bio,
-                updatedAt: new Date().toISOString(),
-              }
-            : u
-        );
-      }
-      return [
-        {
-          id: updatedUser.id,
-          name: updatedUser.nome,
-          email: updatedUser.email,
-          password: '1234',
-          perfil: updatedUser.perfil,
-          telefone: updatedUser.telefone,
-          cep: updatedUser.cep,
-          endereco: updatedUser.endereco,
-          numero: updatedUser.numero,
-          bairro: updatedUser.bairro,
-          cidade: updatedUser.cidade,
-          bio: updatedUser.bio,
-          updatedAt: new Date().toISOString(),
-        },
-        ...prev,
-      ];
+      );
+      const nextList = exists
+        ? prev.map((u) =>
+            u.email.trim().toLowerCase() === emailLower || u.id === updatedUser.id
+              ? {
+                  ...u,
+                  name: updatedUser.nome,
+                  telefone: updatedUser.telefone,
+                  cep: updatedUser.cep,
+                  endereco: updatedUser.endereco,
+                  numero: updatedUser.numero,
+                  bairro: updatedUser.bairro,
+                  cidade: updatedUser.cidade,
+                  bio: updatedUser.bio,
+                  updatedAt: new Date().toISOString(),
+                }
+              : u
+          )
+        : [
+            {
+              id: updatedUser.id,
+              name: updatedUser.nome,
+              email: updatedUser.email,
+              perfil: updatedUser.perfil,
+              telefone: updatedUser.telefone,
+              cep: updatedUser.cep,
+              endereco: updatedUser.endereco,
+              numero: updatedUser.numero,
+              bairro: updatedUser.bairro,
+              cidade: updatedUser.cidade,
+              bio: updatedUser.bio,
+              updatedAt: new Date().toISOString(),
+            },
+            ...prev,
+          ];
+      return sanitizeUsersForStorage(nextList);
     });
 
-    crossAppSync.syncUserProfile(updatedUser);
+    await crossAppSync.syncUserProfile(updatedUser);
 
     try {
       await AsyncStorage.setItem(
         STORAGE_KEYS.CIDADAO.SESSION,
-        JSON.stringify({ user: updatedUser, loginAt: new Date().toISOString() })
+        JSON.stringify({
+          user: updatedUser,
+          token: securityService.generateSessionToken(updatedUser.id),
+          loginAt: new Date().toISOString(),
+        })
       );
     } catch (e) {
-      console.log('Erro ao salvar usuário atualizado:', e);
+      console.warn('Falha ao salvar usuário atualizado:', e);
     }
-  };
+  }, []);
 
-  /** Callback de login bem-sucedido com reconstituição completa do perfil e carregamento de dados do usuário */
-  const handleLoginSuccess = async (user: Usuario) => {
-    const localUser = registeredUsers.find(
-      (u) => u.email.trim().toLowerCase() === user.email.trim().toLowerCase()
-    );
+  /** Callback de login bem-sucedido com reconstituição completa do perfil e conciliação de dados */
+  const handleLoginSuccess = useCallback(
+    async (user: Usuario) => {
+      const localUser = registeredUsers.find(
+        (u) => u.email.trim().toLowerCase() === user.email.trim().toLowerCase()
+      );
 
-    const fullUser: Usuario = localUser
-      ? {
-          ...user,
-          nome: localUser.name || user.nome,
-          telefone: localUser.telefone || user.telefone,
-          cep: localUser.cep || user.cep,
-          endereco: localUser.endereco || user.endereco,
-          numero: localUser.numero || user.numero,
-          bairro: localUser.bairro || user.bairro,
-          cidade: localUser.cidade || user.cidade,
-          bio: localUser.bio || user.bio,
-        }
-      : user;
+      const fullUser: Usuario = localUser
+        ? {
+            ...user,
+            nome: localUser.name || user.nome,
+            telefone: localUser.telefone || user.telefone,
+            cep: localUser.cep || user.cep,
+            endereco: localUser.endereco || user.endereco,
+            numero: localUser.numero || user.numero,
+            bairro: localUser.bairro || user.bairro,
+            cidade: localUser.cidade || user.cidade,
+            bio: localUser.bio || user.bio,
+          }
+        : user;
 
-    setCurrentUser(fullUser);
-    setScreen('home');
+      const sessionToken = securityService.generateSessionToken(fullUser.id);
+      crossAppSync.setAuthSession(fullUser, sessionToken);
+      setCurrentUser(fullUser);
+      setScreen('home');
 
-    // Carrega apenas os descartes específicos desta conta
-    try {
-      const [storedUserDiscards, liveDiscards] = await Promise.all([
-        AsyncStorage.getItem(`${STORAGE_KEYS.CIDADAO.DISCARDS}_${fullUser.id}`),
-        crossAppSync.fetchDiscardsByUser(fullUser.id, fullUser.email),
-      ]);
-      const liveList = Array.isArray(liveDiscards) ? liveDiscards.map(normalizeToCitizenDiscard) : null;
-      const localList: DiscardItem[] = storedUserDiscards
-        ? (JSON.parse(storedUserDiscards) as any[]).map(normalizeToCitizenDiscard)
-        : [];
-      const userItems = liveList !== null && liveList.length > 0 ? liveList : localList;
-      setItems(userItems);
-    } catch (e) {
+      await syncAndReconcileUserDiscards(fullUser);
+
+      try {
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.CIDADAO.SESSION,
+          JSON.stringify({
+            user: fullUser,
+            token: sessionToken,
+            loginAt: new Date().toISOString(),
+          })
+        );
+      } catch (e) {
+        console.warn('Falha ao salvar sessão:', e);
+      }
+    },
+    [registeredUsers, syncAndReconcileUserDiscards]
+  );
+
+  /** Callback de cadastro bem-sucedido: inicializa conta com lista zerada de descartes e sem senha em texto puro */
+  const handleRegisterSuccess = useCallback(
+    async (user: Usuario, updatedUsers: RegisteredUser[]) => {
+      const safeUsers = sanitizeUsersForStorage(updatedUsers);
+      const sessionToken = securityService.generateSessionToken(user.id);
+      crossAppSync.setAuthSession(user, sessionToken);
+      setRegisteredUsers(safeUsers);
+      setCurrentUser(user);
       setItems([]);
-    }
+      setSelectedItemId(null);
+      setScreen('home');
 
-    try {
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.CIDADAO.SESSION,
-        JSON.stringify({ user: fullUser, loginAt: new Date().toISOString() })
-      );
-    } catch (e) {
-      console.log('Erro ao salvar sessão:', e);
-    }
-  };
-
-  /** Callback de cadastro bem-sucedido: inicializa conta com lista zerada de descartes */
-  const handleRegisterSuccess = async (user: Usuario, updatedUsers: RegisteredUser[]) => {
-    setRegisteredUsers(updatedUsers);
-    setCurrentUser(user);
-    // Novo usuário inicia com lista de descartes vazia (zero vazamento de dados de outras contas)
-    setItems([]);
-    setSelectedItemId(null);
-    setScreen('home');
-
-    try {
-      await AsyncStorage.setItem(`${STORAGE_KEYS.CIDADAO.DISCARDS}_${user.id}`, JSON.stringify([]));
-      await AsyncStorage.setItem(STORAGE_KEYS.CIDADAO.DISCARDS, JSON.stringify([]));
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.CIDADAO.SESSION,
-        JSON.stringify({ user, loginAt: new Date().toISOString() })
-      );
-    } catch (e) {
-      console.log('Erro ao salvar sessão:', e);
-    }
-  };
+      try {
+        await Promise.all([
+          AsyncStorage.setItem(
+            `${STORAGE_KEYS.CIDADAO.DISCARDS}_${user.id}`,
+            JSON.stringify([])
+          ),
+          AsyncStorage.setItem(STORAGE_KEYS.CIDADAO.DISCARDS, JSON.stringify([])),
+          AsyncStorage.setItem(
+            STORAGE_KEYS.CIDADAO.SESSION,
+            JSON.stringify({
+              user,
+              token: sessionToken,
+              loginAt: new Date().toISOString(),
+            })
+          ),
+        ]);
+      } catch (e) {
+        console.warn('Falha ao salvar sessão de cadastro:', e);
+      }
+    },
+    []
+  );
 
   /** Encerra a sessão e limpa integralmente os estados em memória e cache */
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
+    crossAppSync.setAuthSession(null);
     setCurrentUser(null);
-    setItems([]); // Limpa os descartes em memória
+    setItems([]);
     setSelectedItemId(null);
     setNotifications(INITIAL_NOTIFICATIONS);
-    firebaseService.clearLocalMemoryCache(); // Limpa cache do Firebase Service
+    firebaseService.clearLocalMemoryCache();
     setScreen('home');
     try {
-      await AsyncStorage.removeItem(STORAGE_KEYS.CIDADAO.SESSION);
-      await AsyncStorage.removeItem(STORAGE_KEYS.CIDADAO.DISCARDS);
+      await Promise.all([
+        AsyncStorage.removeItem(STORAGE_KEYS.CIDADAO.SESSION),
+        AsyncStorage.removeItem(STORAGE_KEYS.CIDADAO.DISCARDS),
+      ]);
     } catch (e) {
-      console.log('Erro ao remover sessão:', e);
+      console.warn('Falha ao remover sessão:', e);
     }
-  };
+  }, []);
 
-  const unreadCount = useMemo(() => getUnreadNotificationCount(notifications), [notifications]);
+  const unreadCount = useMemo(
+    () => getUnreadNotificationCount(notifications),
+    [notifications]
+  );
 
   const selectedItem = useMemo(() => {
     return items.find((item) => item.id === selectedItemId) ?? null;
   }, [items, selectedItemId]);
 
-  const openDiscardDetails = (item: DiscardItem) => {
+  const defaultUserAddress = useMemo(
+    () => ({
+      cep: currentUser?.cep,
+      endereco: currentUser?.endereco,
+      numero: currentUser?.numero,
+      bairro: currentUser?.bairro,
+      cidade: currentUser?.cidade,
+    }),
+    [
+      currentUser?.cep,
+      currentUser?.endereco,
+      currentUser?.numero,
+      currentUser?.bairro,
+      currentUser?.cidade,
+    ]
+  );
+
+  const openDiscardDetails = useCallback((item: DiscardItem) => {
     setSelectedItemId(item.id);
     setScreen('details');
-  };
+  }, []);
+
+  const openEditDiscard = useCallback((item: DiscardItem) => {
+    setSelectedItemId(item.id);
+    setScreen('edit');
+  }, []);
 
   // --- Renderização Dinâmica de Telas ---
   const renderScreen = useMemo(() => {
@@ -485,13 +822,27 @@ export default function App() {
             onSave={addDiscard}
             onBack={() => setScreen('home')}
             isOffline={isOffline}
-            defaultUserAddress={{
-              cep: currentUser?.cep,
-              endereco: currentUser?.endereco,
-              numero: currentUser?.numero,
-              bairro: currentUser?.bairro,
-              cidade: currentUser?.cidade,
-            }}
+            defaultUserAddress={defaultUserAddress}
+          />
+        );
+      case 'edit':
+        return selectedItem ? (
+          <RegisterDiscardScreen
+            initialItem={selectedItem}
+            isEditing={true}
+            onSave={handleUpdateDiscard}
+            onBack={() => setScreen('details')}
+            isOffline={isOffline}
+            defaultUserAddress={defaultUserAddress}
+          />
+        ) : (
+          <HistoryScreen
+            items={items}
+            onOpenDetails={openDiscardDetails}
+            onRegister={() => setScreen('register')}
+            onRefresh={handleRefreshDiscards}
+            refreshing={isRefreshing}
+            onBack={() => setScreen('home')}
           />
         );
       case 'history':
@@ -500,6 +851,8 @@ export default function App() {
             items={items}
             onOpenDetails={openDiscardDetails}
             onRegister={() => setScreen('register')}
+            onRefresh={handleRefreshDiscards}
+            refreshing={isRefreshing}
             onBack={() => setScreen('home')}
           />
         );
@@ -507,6 +860,7 @@ export default function App() {
         return selectedItem ? (
           <DiscardDetailsScreen
             item={selectedItem}
+            onEdit={openEditDiscard}
             onDelete={handleDeleteDiscard}
             onBack={() => setScreen('history')}
           />
@@ -515,21 +869,15 @@ export default function App() {
             items={items}
             onOpenDetails={openDiscardDetails}
             onRegister={() => setScreen('register')}
+            onRefresh={handleRefreshDiscards}
+            refreshing={isRefreshing}
             onBack={() => setScreen('home')}
           />
         );
       case 'tips':
-        return (
-          <TipsScreen
-            onBack={() => setScreen('home')}
-          />
-        );
+        return <TipsScreen onBack={() => setScreen('home')} />;
       case 'points':
-        return (
-          <CollectionPointsScreen
-            onBack={() => setScreen('home')}
-          />
-        );
+        return <CollectionPointsScreen onBack={() => setScreen('home')} />;
       case 'profile':
         return (
           <ProfileScreen
@@ -553,7 +901,27 @@ export default function App() {
           />
         );
     }
-  }, [screen, items, selectedItem, currentUser, registeredUsers, unreadCount, isOffline]);
+  }, [
+    screen,
+    items,
+    selectedItem,
+    currentUser,
+    registeredUsers,
+    unreadCount,
+    isOffline,
+    isRefreshing,
+    defaultUserAddress,
+    addDiscard,
+    handleUpdateDiscard,
+    handleDeleteDiscard,
+    handleUpdateUser,
+    handleLoginSuccess,
+    handleRegisterSuccess,
+    handleLogout,
+    handleRefreshDiscards,
+    openDiscardDetails,
+    openEditDiscard,
+  ]);
 
   if (!isReady) {
     return (
@@ -576,7 +944,9 @@ export default function App() {
         visible={showNotificationsModal}
         notifications={notifications}
         onClose={() => setShowNotificationsModal(false)}
-        onMarkAllAsRead={() => setNotifications((prev) => markAllNotificationsAsRead(prev))}
+        onMarkAllAsRead={() =>
+          setNotifications((prev) => markAllNotificationsAsRead(prev))
+        }
       />
       <FeedbackMessage
         message={feedback?.message}

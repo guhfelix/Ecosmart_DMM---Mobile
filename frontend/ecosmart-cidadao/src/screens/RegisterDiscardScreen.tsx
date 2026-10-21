@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Pressable,
   ActivityIndicator,
@@ -23,17 +23,23 @@ import {
   fetchAddressByCep,
   formatCep,
 } from '../services/cepService';
-import type { DiscardItem } from '../models';
+import type { DiscardItem, DiscardUnit } from '../models';
 
 export type { DiscardItem };
 
+export const DISCARD_UNITS: readonly DiscardUnit[] = ['kg', 'unidade', 'saco', 'litro'] as const;
+
 type Props = {
-  /** Callback para salvar o descarte na lista global do App */
-  onSave: (item: DiscardItem) => void;
-  /** Callback para retornar à tela inicial */
+  /** Callback para salvar ou atualizar o descarte na lista global do App */
+  onSave: (item: DiscardItem) => void | Promise<void>;
+  /** Callback para retornar à tela anterior */
   onBack: () => void;
   /** Indicador de conexão (se offline, salva com status pendente offline) */
   isOffline?: boolean;
+  /** Item existente para preenchimento no modo de edição (A4-01) */
+  initialItem?: DiscardItem | null;
+  /** Flag explícita indicando modo de edição (A4-01) */
+  isEditing?: boolean;
   /** Endereço padrão do perfil do cidadão para carregamento automático */
   defaultUserAddress?: {
     cep?: string;
@@ -45,41 +51,75 @@ type Props = {
 };
 
 /**
- * Tela de Registro de Descarte do Cidadão em Cáceres - MT.
- * Permite selecionar tipo, quantidade, observação, preenchimento automático por CEP (ViaCEP)
- * e geolocalização com coordenadas de Cáceres.
+ * Tela de Registro e Edição de Descarte do Cidadão em Cáceres - MT (A4-01, A4-08, A4-09, A4-17).
+ * Permite selecionar categoria, quantidade numérica validada (> 0), unidade de medida,
+ * observação, preenchimento automático por CEP (ViaCEP) e coordenadas de referência de Cáceres.
  */
 export function RegisterDiscardScreen({
   onSave,
   onBack,
   isOffline = false,
+  initialItem = null,
+  isEditing = false,
   defaultUserAddress,
 }: Props) {
-  const [selectedType, setSelectedType] = useState(wasteTypes[0]);
-  const [quantity, setQuantity] = useState('');
-  const [observation, setObservation] = useState('');
+  const editMode = Boolean(isEditing || initialItem);
+  const parsedInitialQty = initialItem
+    ? validationUtils.parseQuantityAndUnit(initialItem.quantity, initialItem.unit)
+    : null;
+
+  const [selectedType, setSelectedType] = useState(
+    initialItem?.type || initialItem?.wasteType || wasteTypes[0]
+  );
+  const [quantity, setQuantity] = useState(
+    parsedInitialQty ? String(parsedInitialQty.numericValue) : ''
+  );
+  const [selectedUnit, setSelectedUnit] = useState<DiscardUnit>(
+    parsedInitialQty?.unit || initialItem?.unit || 'unidade'
+  );
+  const [observation, setObservation] = useState(initialItem?.observation || '');
   const [errors, setErrors] = useState<{ quantity?: string; type?: string }>({});
-  
-  // Estados de Endereço e CEP (Cáceres - MT) inicializados com o endereço padrão do usuário
-  const hasDefaultAddress = Boolean(defaultUserAddress?.endereco);
+  const [saving, setSaving] = useState(false);
+  const isSubmittingRef = useRef(false);
+
+  // Extrai logradouro sem número caso venha concatenado na edição
+  const initialStreet = initialItem?.address
+    ? initialItem.address.split(',')[0].trim()
+    : defaultUserAddress?.endereco || '';
+  const initialNumber =
+    initialItem?.numero || initialItem?.number || defaultUserAddress?.numero || '';
+
+  const hasDefaultAddress = Boolean(defaultUserAddress?.endereco) && !editMode;
   const [showAddressFields, setShowAddressFields] = useState(!hasDefaultAddress);
-  const [cep, setCep] = useState(defaultUserAddress?.cep || '78200-000');
-  const [address, setAddress] = useState(defaultUserAddress?.endereco || '');
-  const [numero, setNumero] = useState(defaultUserAddress?.numero || '');
-  const [neighborhood, setNeighborhood] = useState(defaultUserAddress?.bairro || 'Centro');
-  const [city, setCity] = useState(defaultUserAddress?.cidade || CACERES_DEFAULTS.CITY);
+  const [cep, setCep] = useState(
+    initialItem?.cep || defaultUserAddress?.cep || '78200-000'
+  );
+  const [address, setAddress] = useState(initialStreet);
+  const [numero, setNumero] = useState(initialNumber);
+  const [neighborhood, setNeighborhood] = useState(
+    initialItem?.neighborhood || defaultUserAddress?.bairro || 'Centro'
+  );
+  const [city, setCity] = useState(
+    initialItem?.city || defaultUserAddress?.cidade || CACERES_DEFAULTS.CITY
+  );
   const [isSearchingCep, setIsSearchingCep] = useState(false);
   const [cepFoundMessage, setCepFoundMessage] = useState<string | null>(null);
 
-  // Estados de GPS
-  const [hasGps, setHasGps] = useState(false);
-  const [coordinates, setCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
+  // Estados de Coordenadas de Referência (A4-17)
+  const [hasReferenceCoords, setHasReferenceCoords] = useState(false);
+  const [coordinates, setCoordinates] = useState<{ latitude: number; longitude: number } | null>(
+    initialItem?.latitude && initialItem?.longitude
+      ? { latitude: initialItem.latitude, longitude: initialItem.longitude }
+      : null
+  );
 
   const locationSummary = [
     address ? `${address}${numero ? ', ' + numero : ''}` : null,
     neighborhood,
     city,
-  ].filter(Boolean).join(' • ');
+  ]
+    .filter(Boolean)
+    .join(' • ');
 
   /**
    * Busca dados de endereço automaticamente via API ao digitar o CEP
@@ -99,9 +139,13 @@ export function RegisterDiscardScreen({
           if (result.bairro) setNeighborhood(result.bairro);
           setCity(result.localidade || CACERES_DEFAULTS.CITY);
           setCoordinates({ latitude: result.latitude, longitude: result.longitude });
-          setCepFoundMessage(`📍 ${result.bairro || 'Cáceres'} - ${result.localidade || 'Cáceres'}/MT`);
+          setCepFoundMessage(
+            `📍 ${result.bairro || 'Cáceres'} - ${result.localidade || 'Cáceres'}/MT`
+          );
         } else {
-          setCepFoundMessage('⚠️ ' + (result.message || 'CEP não encontrado. Preencha manualmente.'));
+          setCepFoundMessage(
+            '⚠️ ' + (result.message || 'CEP não encontrado. Preencha manualmente.')
+          );
         }
       } catch (err) {
         setCepFoundMessage('Modo offline: Preencha o endereço manualmente.');
@@ -122,76 +166,123 @@ export function RegisterDiscardScreen({
     handleCepChange(cep);
   };
 
-  /** Captura a localização GPS do dispositivo em Cáceres - MT */
-  const handleUseGps = () => {
-    setHasGps(true);
+  /** Aplica coordenadas de referência de Cáceres - MT sem simular captura falsa de GPS (A4-17) */
+  const handleUseReferenceCoordinates = () => {
+    setHasReferenceCoords(true);
     setCoordinates(DEFAULT_USER_COORDINATES);
     setCep('78200-000');
     setAddress('Praça Barão do Rio Branco');
     setNumero('s/n');
     setNeighborhood('Centro');
     setCity('Cáceres');
-    setCepFoundMessage('📍 Coordenadas de Cáceres - MT capturadas via GPS.');
-    Alert.alert('GPS Conectado', 'Localização capturada: Centro, Cáceres - MT.');
+    setCepFoundMessage('📍 Coordenadas de referência (Cáceres - MT) aplicadas.');
+    Alert.alert(
+      'Coordenadas de Referência',
+      'Coordenadas de referência definidas: Centro, Cáceres - MT.'
+    );
   };
 
-  /** Valida e submete o novo descarte */
-  const handleSave = () => {
-    const nextErrors: { quantity?: string; type?: string } = {};
-    if (!selectedType) nextErrors.type = 'Selecione uma categoria.';
-    if (!quantity.trim()) nextErrors.quantity = 'Informe a quantidade.';
-    setErrors(nextErrors);
-
-    if (!selectedType || !quantity.trim()) {
-      Alert.alert('Dados incompletos', 'Selecione o tipo e informe a quantidade.');
+  /** Valida e submete o descarte (criação ou edição) com proteção contra clique duplo (A4-01, A4-08, A4-09) */
+  const handleSave = async () => {
+    if (saving || isSubmittingRef.current) {
       return;
     }
 
-    const cleanAddress = address.trim();
-    const cleanNumber = numero.trim();
-    const fullStreetAddress = cleanAddress
-      ? `${cleanAddress}${cleanNumber ? ', ' + cleanNumber : ''}`
-      : 'Cáceres - MT';
-
-    const newItem: DiscardItem = {
-      id: generateEntityId('disc'),
-      type: selectedType,
-      quantity: validationUtils.sanitizeText(quantity),
-      observation: validationUtils.sanitizeText(observation) || 'Material reciclável pronto para coleta.',
-      date: new Date().toLocaleDateString('pt-BR'),
-      status: isOffline ? 'Pendente (Offline)' : 'Pendente',
-      cep: cep.trim() || '78200-000',
-      address: fullStreetAddress,
-      number: cleanNumber,
-      numero: cleanNumber,
-      neighborhood: validationUtils.sanitizeText(neighborhood) || 'Centro',
-      city: city || 'Cáceres',
-      latitude: coordinates?.latitude || DEFAULT_USER_COORDINATES.latitude,
-      longitude: coordinates?.longitude || DEFAULT_USER_COORDINATES.longitude,
-      offline: isOffline,
-    };
-
-    onSave(newItem);
-
-    if (isOffline) {
-      Alert.alert(
-        'Modo Offline',
-        'Você está offline. Sua solicitação foi salva no dispositivo e será sincronizada com o Firebase ao reconectar.'
-      );
+    const nextErrors: { quantity?: string; type?: string } = {};
+    if (!selectedType) {
+      nextErrors.type = 'Selecione uma categoria.';
     }
 
-    onBack();
+    const qtyValidation = validationUtils.isValidQuantity(quantity);
+    if (!qtyValidation.isValid || qtyValidation.numericValue === undefined) {
+      nextErrors.quantity = qtyValidation.errorMessage || 'Informe uma quantidade válida maior que zero.';
+    }
+
+    setErrors(nextErrors);
+
+    if (nextErrors.type || nextErrors.quantity || qtyValidation.numericValue === undefined) {
+      Alert.alert(
+        'Dados inválidos',
+        nextErrors.quantity || nextErrors.type || 'Selecione o tipo e informe uma quantidade numérica maior que zero.'
+      );
+      return;
+    }
+
+    isSubmittingRef.current = true;
+    setSaving(true);
+
+    try {
+      const cleanAddress = address.trim();
+      const cleanNumber = numero.trim();
+      const fullStreetAddress = cleanAddress
+        ? `${cleanAddress}${cleanNumber && !cleanAddress.includes(cleanNumber) ? ', ' + cleanNumber : ''}`
+        : 'Cáceres - MT';
+
+      const nowIso = new Date().toISOString();
+      const preservedId = initialItem?.id || generateEntityId('disc');
+
+      const discardPayload: DiscardItem = {
+        ...(initialItem || {}),
+        id: preservedId,
+        type: selectedType,
+        wasteType: selectedType,
+        quantity: qtyValidation.numericValue,
+        unit: selectedUnit || 'unidade',
+        observation:
+          validationUtils.sanitizeText(observation) ||
+          'Material reciclável pronto para coleta.',
+        date: initialItem?.date || nowIso,
+        createdAt: initialItem?.createdAt || nowIso,
+        updatedAt: nowIso,
+        status:
+          initialItem?.status === 'Coletado'
+            ? 'Coletado'
+            : isOffline
+            ? 'Pendente (Offline)'
+            : 'Pendente',
+        cep: cep.trim() || '78200-000',
+        address: fullStreetAddress,
+        number: cleanNumber,
+        numero: cleanNumber,
+        neighborhood: validationUtils.sanitizeText(neighborhood) || 'Centro',
+        city: city || 'Cáceres',
+        latitude: coordinates?.latitude || DEFAULT_USER_COORDINATES.latitude,
+        longitude: coordinates?.longitude || DEFAULT_USER_COORDINATES.longitude,
+        offline: isOffline,
+        syncPending: isOffline,
+      };
+
+      const savePromise = onSave(discardPayload);
+      if (savePromise && typeof (savePromise as Promise<void>).then === 'function') {
+        await savePromise;
+      }
+
+      if (isOffline) {
+        Alert.alert(
+          'Salvo localmente (offline)',
+          'Você está offline. Sua solicitação foi salva no dispositivo e será sincronizada com a nuvem ao reconectar.'
+        );
+      }
+
+      onBack();
+    } finally {
+      isSubmittingRef.current = false;
+      setSaving(false);
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <ScreenHeader
-        title="Registrar descarte"
-        subtitle="Informe os dados do resíduo."
+        title={editMode ? 'Editar descarte' : 'Registrar descarte'}
+        subtitle={
+          editMode
+            ? 'Atualize os dados do seu registro.'
+            : 'Informe os dados do resíduo.'
+        }
         onBack={onBack}
       />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {/* Formulário de Registro */}
         <View style={styles.card}>
           <Text style={styles.sectionLabel}>O que você está descartando?</Text>
           <View style={styles.tagsContainer}>
@@ -209,7 +300,9 @@ export function RegisterDiscardScreen({
                   setErrors((prev) => ({ ...prev, type: undefined }));
                 }}
               >
-                <Text style={[styles.tagText, selectedType === type && styles.tagTextSelected]}>
+                <Text
+                  style={[styles.tagText, selectedType === type && styles.tagTextSelected]}
+                >
                   {type}
                 </Text>
               </Pressable>
@@ -217,19 +310,47 @@ export function RegisterDiscardScreen({
           </View>
           {errors.type ? <Text style={styles.errorText}>{errors.type}</Text> : null}
 
-          <Text style={styles.label}>Quantidade</Text>
+          <Text style={styles.label}>Quantidade (numérica &gt; 0)</Text>
           <TextInput
+            testID="quantity-input"
             style={[styles.input, errors.quantity && styles.inputError]}
             value={quantity}
             onChangeText={(text) => {
               setQuantity(text);
               if (errors.quantity) setErrors((prev) => ({ ...prev, quantity: undefined }));
             }}
-            placeholder="Ex.: 4 caixas, 10 garrafas PET, 2 sacos"
+            placeholder="Ex.: 2, 5, 10"
             placeholderTextColor={colors.muted}
+            keyboardType="numeric"
             returnKeyType="next"
           />
           {errors.quantity ? <Text style={styles.errorText}>{errors.quantity}</Text> : null}
+
+          <Text style={styles.label}>Unidade de medida</Text>
+          <View style={styles.unitRow}>
+            {DISCARD_UNITS.map((unitOption) => (
+              <Pressable
+                key={unitOption}
+                testID={`unit-option-${unitOption}`}
+                android_ripple={{ color: colors.primarySoft }}
+                style={({ pressed }) => [
+                  styles.unitChip,
+                  selectedUnit === unitOption && styles.unitChipSelected,
+                  pressed && styles.tagPressed,
+                ]}
+                onPress={() => setSelectedUnit(unitOption)}
+              >
+                <Text
+                  style={[
+                    styles.unitChipText,
+                    selectedUnit === unitOption && styles.unitChipTextSelected,
+                  ]}
+                >
+                  {unitOption}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
 
           <View style={styles.locationHeader}>
             <Text style={styles.sectionLabel}>Local da retirada</Text>
@@ -289,13 +410,16 @@ export function RegisterDiscardScreen({
                 </View>
               ) : null}
 
-              {/* Botão de Localização GPS */}
+              {/* Botão de Coordenadas de Referência (A4-17) */}
               <Pressable
+                testID="reference-coordinates-button"
                 style={({ pressed }) => [styles.gpsButton, pressed && styles.tagPressed]}
-                onPress={handleUseGps}
+                onPress={handleUseReferenceCoordinates}
               >
                 <Text style={styles.gpsButtonText}>
-                  {hasGps ? '📍 Atualizar Localização GPS (Cáceres)' : '📍 Usar minha localização atual (GPS)'}
+                  {hasReferenceCoords
+                    ? '📍 Coordenadas de referência aplicadas (Cáceres - MT)'
+                    : '📍 Usar coordenadas de referência (Cáceres - MT)'}
                 </Text>
               </Pressable>
 
@@ -347,8 +471,14 @@ export function RegisterDiscardScreen({
             numberOfLines={3}
           />
 
-          {/* Botões de Ação */}
-          <PrimaryButton title="Salvar descarte" onPress={handleSave} style={styles.primaryButton} />
+          <PrimaryButton
+            testID="save-discard-button"
+            title={editMode ? 'Salvar alterações' : 'Salvar descarte'}
+            onPress={handleSave}
+            loading={saving}
+            disabled={saving}
+            style={styles.primaryButton}
+          />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -450,6 +580,33 @@ const styles = StyleSheet.create({
   tagTextSelected: {
     color: '#FFFFFF',
     fontWeight: 'bold',
+  },
+  unitRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 8,
+  },
+  unitChip: {
+    backgroundColor: '#ECEFF1',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: '#CFD8DC',
+  },
+  unitChipSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  unitChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  unitChipTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '800',
   },
   defaultAddressBadge: {
     backgroundColor: colors.primarySoft,

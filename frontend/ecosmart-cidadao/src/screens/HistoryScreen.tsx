@@ -14,6 +14,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import type { DiscardItem } from '../models';
 import { colors } from '../theme/colors';
 import { radius, shadow, spacing } from '../theme/layout';
+import { validationUtils } from '../utils/validationUtils';
 
 type FilterType = 'todos' | 'pendente' | 'coletado' | 'offline';
 
@@ -21,10 +22,19 @@ type Props = {
   items: DiscardItem[];
   onOpenDetails?: (item: DiscardItem) => void;
   onRegister?: () => void;
+  onRefresh?: () => void;
+  refreshing?: boolean;
   onBack: () => void;
 };
 
-export function HistoryScreen({ items, onOpenDetails, onRegister, onBack }: Props) {
+export function HistoryScreen({
+  items,
+  onOpenDetails,
+  onRegister,
+  onRefresh,
+  refreshing = false,
+  onBack,
+}: Props) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<FilterType>('todos');
 
@@ -36,18 +46,24 @@ export function HistoryScreen({ items, onOpenDetails, onRegister, onBack }: Prop
     } else if (statusFilter === 'coletado') {
       result = result.filter((i) => i.status === 'Coletado');
     } else if (statusFilter === 'offline') {
-      result = result.filter((i) => i.status === 'Pendente (Offline)' || i.offline);
+      result = result.filter(
+        (i) => i.status === 'Pendente (Offline)' || i.offline || i.syncPending
+      );
     }
 
     const q = searchQuery.trim().toLowerCase();
     if (q) {
-      result = result.filter(
-        (i) =>
+      result = result.filter((i) => {
+        const formattedQty = validationUtils
+          .formatQuantityWithUnit(i.quantity, i.unit)
+          .toLowerCase();
+        return (
           i.type.toLowerCase().includes(q) ||
-          i.quantity.toLowerCase().includes(q) ||
+          formattedQty.includes(q) ||
           (i.observation && i.observation.toLowerCase().includes(q)) ||
           (i.neighborhood && i.neighborhood.toLowerCase().includes(q))
-      );
+        );
+      });
     }
 
     return result;
@@ -111,6 +127,8 @@ export function HistoryScreen({ items, onOpenDetails, onRegister, onBack }: Prop
         data={filteredItems}
         contentContainerStyle={filteredItems.length === 0 ? styles.emptyList : styles.list}
         keyExtractor={(item) => item.id}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
         ListEmptyComponent={
           <EmptyState
             title={
@@ -128,7 +146,8 @@ export function HistoryScreen({ items, onOpenDetails, onRegister, onBack }: Prop
           />
         }
         renderItem={({ item }) => {
-          const isOffline = item.status === 'Pendente (Offline)' || item.offline;
+          const isOffline =
+            item.status === 'Pendente (Offline)' || item.offline || item.syncPending;
           const isDone = item.status === 'Coletado';
 
           return (
@@ -145,7 +164,9 @@ export function HistoryScreen({ items, onOpenDetails, onRegister, onBack }: Prop
                 />
               </View>
 
-              <Text style={styles.itemQuantity}>{item.quantity}</Text>
+              <Text style={styles.itemQuantity}>
+                {validationUtils.formatQuantityWithUnit(item.quantity, item.unit)}
+              </Text>
               <View style={styles.itemFooter}>
                 <Text style={styles.itemMeta}>{item.date}</Text>
                 {item.neighborhood ? <Text style={styles.itemMeta}>{item.neighborhood}</Text> : null}

@@ -10,7 +10,6 @@ import {
 import {
   AdminDiscardRecord,
   AppNotification,
-  CitizenDiscardStatus,
   CollectionPointItem,
   CollectorDiscard,
   DiscardItem,
@@ -47,6 +46,22 @@ async function withFirestoreTimeout<T = any>(promise: Promise<T>, timeoutMs = 70
   }
 }
 
+/**
+ * Remove propriedades com valor undefined de um objeto antes de enviá-lo ao Cloud Firestore,
+ * evitando o erro "Function setDoc() called with invalid data. Unsupported field value: undefined".
+ */
+function sanitizeFirestorePayload<T extends Record<string, any>>(data: T): T {
+  if (!data || typeof data !== 'object') return data;
+  const cleaned: Record<string, any> = {};
+  for (const key of Object.keys(data)) {
+    const val = data[key];
+    if (val !== undefined) {
+      cleaned[key] = val;
+    }
+  }
+  return cleaned as T;
+}
+
 const ADMIN_COLLECTION = ((ADMIN_FIRESTORE_COLLECTIONS as any)?.ADMINS as string) || 'admins';
 const ADMIN_LOGS_COLLECTION = ((ADMIN_FIRESTORE_COLLECTIONS as any)?.AUDIT_LOGS as string) || 'admin_logs';
 
@@ -59,7 +74,6 @@ const ADMIN_LOGS_COLLECTION = ((ADMIN_FIRESTORE_COLLECTIONS as any)?.AUDIT_LOGS 
  */
 export class FirebaseService {
   private config: FirebaseConfig;
-  private isInitialized = false;
   private memoryCache: Record<string, any[]> = {
     [FIRESTORE_COLLECTIONS.USERS]: [...CACERES_INITIAL_USERS],
     [FIRESTORE_COLLECTIONS.DISCARDS]: [...CACERES_DISCARDS_COLETOR],
@@ -86,7 +100,6 @@ export class FirebaseService {
     if (customConfig) {
       this.config = { ...this.config, ...customConfig };
     }
-    this.isInitialized = true;
     ensureFirebaseAuth().catch(() => {});
     return true;
   }
@@ -114,13 +127,16 @@ export class FirebaseService {
   /**
    * Cria ou sincroniza um documento de descarte no Firestore.
    */
-  async saveDiscardDocument(discard: DiscardItem | CollectorDiscard | AdminDiscardRecord): Promise<{ success: boolean; id: string }> {
+  async saveDiscardDocument(
+    discard: DiscardItem | CollectorDiscard | AdminDiscardRecord
+  ): Promise<{ success: boolean; id: string; remoteSynced?: boolean; error?: string }> {
     const id = discard.id || generateEntityId('disc');
-    const docData = {
+    const nowIso = new Date().toISOString();
+    const docData = sanitizeFirestorePayload({
       ...discard,
       id,
-      updatedAt: new Date().toISOString(),
-    };
+      updatedAt: (discard as any).updatedAt || nowIso,
+    });
 
     // Armazena no cache local
     const list = this.memoryCache[FIRESTORE_COLLECTIONS.DISCARDS];
@@ -131,35 +147,47 @@ export class FirebaseService {
       list.unshift(docData);
     }
 
+    let remoteSynced = false;
+    let errorMessage: string | undefined;
+
     // Persiste no Firestore
     try {
       const db = getFirebaseDb();
       if (db) {
         const { doc, setDoc } = require('firebase/firestore');
-        await withFirestoreTimeout<any>(setDoc(doc(db, FIRESTORE_COLLECTIONS.DISCARDS, id), docData, { merge: true }));
+        await withFirestoreTimeout<any>(
+          setDoc(doc(db, FIRESTORE_COLLECTIONS.DISCARDS, id), docData, { merge: true })
+        );
+        remoteSynced = true;
       }
-    } catch (err) {
+    } catch (err: any) {
       // Mecanismo de contingência em cache local
+      errorMessage = err?.message || 'Falha ao sincronizar com o Cloud Firestore';
     }
 
-    return { success: true, id };
+    return { success: true, id, remoteSynced, error: errorMessage };
   }
 
   /**
    * Salva explicitamente um novo descarte cadastrado pelo Cidadão no Cloud Firestore.
    */
-  async saveCitizenDiscard(discard: DiscardItem, citizen?: Partial<Usuario>): Promise<{ success: boolean; id: string }> {
+  async saveCitizenDiscard(
+    discard: DiscardItem,
+    citizen?: Partial<Usuario>
+  ): Promise<{ success: boolean; id: string; remoteSynced?: boolean; error?: string }> {
     const id = discard.id || generateEntityId('disc');
+    const nowIso = new Date().toISOString();
     const docData = {
       id,
       userId: citizen?.id || discard.userId || 'user-cidadao-1',
       citizenId: citizen?.id || discard.userId || 'user-cidadao-1',
       usuario_id: citizen?.id || discard.userId || 'user-cidadao-1',
-      citizenName: citizen?.nome || 'Maria Cidadã Pantaneira',
-      citizenEmail: citizen?.email || 'maria@gmail.com',
-      wasteType: discard.type,
-      type: discard.type,
+      citizenName: citizen?.nome || discard.citizenName || 'Maria Cidadã Pantaneira',
+      citizenEmail: citizen?.email || discard.citizenEmail || 'maria@gmail.com',
+      wasteType: discard.type || discard.wasteType,
+      type: discard.type || discard.wasteType,
       quantity: discard.quantity,
+      unit: discard.unit,
       observation: discard.observation || '',
       cep: discard.cep || '78200-000',
       address: discard.address || 'Cáceres - MT',
@@ -171,9 +199,9 @@ export class FirebaseService {
       latitude: typeof discard.latitude === 'number' ? discard.latitude : -16.0725,
       longitude: typeof discard.longitude === 'number' ? discard.longitude : -57.6798,
       photoUri: discard.photoUri || null,
-      createdAt: discard.date || new Date().toLocaleDateString('pt-BR'),
-      date: discard.date || new Date().toLocaleDateString('pt-BR'),
-      updatedAt: new Date().toISOString(),
+      createdAt: discard.createdAt || discard.date || nowIso,
+      date: discard.date || discard.createdAt || nowIso,
+      updatedAt: discard.updatedAt || nowIso,
     };
 
     return this.saveDiscardDocument(docData as any);
@@ -543,7 +571,7 @@ export class FirebaseService {
 
   /**
    * Salva ou atualiza os dados cadastrais do usuário no Firestore padrão.
-   * Não permite a persistência de contas administrativas na base comum.
+   * Não permite a persistência de contas administrativas na base comum nem senhas em texto simples (A4-11).
    */
   async saveUserDocument(user: Usuario): Promise<boolean> {
     if (user.perfil === 'admin') {
@@ -552,9 +580,10 @@ export class FirebaseService {
       );
     }
 
+    const { password: _p, passwordHash: _ph, ...cleanUser } = user as any;
     const users = this.memoryCache[FIRESTORE_COLLECTIONS.USERS] as Usuario[];
     const index = users.findIndex((u) => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase());
-    const userData: Usuario = { ...user, updatedAt: new Date().toISOString() };
+    const userData: Usuario = { ...cleanUser, updatedAt: new Date().toISOString() };
 
     if (index >= 0) {
       users[index] = { ...users[index], ...userData };
@@ -606,12 +635,13 @@ export class FirebaseService {
 
   /**
    * Salva ou atualiza um administrador no banco de dados isolado (ecosmart-admin-db).
-   * Nunca grava na coleção de usuários comuns.
+   * Nunca grava na coleção de usuários comuns nem persiste senhas (A4-11).
    */
   async saveAdminDocument(adminUser: Usuario): Promise<boolean> {
+    const { password: _p, passwordHash: _ph, ...cleanAdmin } = adminUser as any;
     const admins = this.adminMemoryCache[ADMIN_COLLECTION] as Usuario[];
     const index = admins.findIndex((u) => u.id === adminUser.id || u.email.toLowerCase() === adminUser.email.toLowerCase());
-    const adminData: Usuario = { ...adminUser, perfil: 'admin', updatedAt: new Date().toISOString() };
+    const adminData: Usuario = { ...cleanAdmin, perfil: 'admin', updatedAt: new Date().toISOString() };
 
     if (index >= 0) {
       admins[index] = { ...admins[index], ...adminData };

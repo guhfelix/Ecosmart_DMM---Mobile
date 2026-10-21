@@ -1,8 +1,19 @@
 /**
  * Configuração do Firebase para o ecossistema EcoSmart Mobile.
  * Suporta injeção de credenciais via variáveis de ambiente ou arquivo de configuração local.
- * Possui modo de fallback (Mock/Offline) para desenvolvimento e testes automatizados.
+ * Possui inicialização explícita do Firebase Auth com persistência via AsyncStorage
+ * (initializeAuth + getReactNativePersistence) para eliminar o warning do @firebase/auth no React Native.
  */
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import {
+  initializeAuth,
+  // @ts-ignore - Exportado pelo bundle React Native de @firebase/auth
+  getReactNativePersistence,
+  getAuth,
+  Auth,
+} from 'firebase/auth';
 
 export interface FirebaseConfig {
   apiKey: string;
@@ -44,22 +55,42 @@ export const FIRESTORE_COLLECTIONS = {
 // Coleções administrativas omitidas no aplicativo comum
 export const ADMIN_FIRESTORE_COLLECTIONS = undefined;
 
-let firebaseAppInstance: any = null;
+let firebaseAppInstance: FirebaseApp | null = null;
 
 /**
- * Inicializa ou obtém a instância do Firebase App
+ * Inicializa ou obtém a instância do Firebase App.
  */
-export function getFirebaseApp(config: FirebaseConfig = defaultFirebaseConfig) {
+export function getFirebaseApp(config: FirebaseConfig = defaultFirebaseConfig): FirebaseApp | null {
+  if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test') {
+    return null;
+  }
   try {
-    const { initializeApp, getApps, getApp } = require('firebase/app');
     if (!getApps || getApps().length === 0) {
       firebaseAppInstance = initializeApp(config);
     } else {
       firebaseAppInstance = getApp();
     }
     return firebaseAppInstance;
-  } catch (error) {
+  } catch (_error) {
     return null;
+  }
+}
+
+const firebaseApp = getFirebaseApp();
+let authInstance: Auth | null = null;
+
+if (firebaseApp) {
+  try {
+    authInstance = initializeAuth(firebaseApp, {
+      persistence: getReactNativePersistence(AsyncStorage),
+    });
+  } catch (_error) {
+    // Fallback caso já tenha sido inicializado no ciclo de vida ou ambiente Node/Web
+    try {
+      authInstance = getAuth(firebaseApp);
+    } catch (_fallbackError) {
+      authInstance = null;
+    }
   }
 }
 
@@ -72,7 +103,7 @@ export function getFirebaseDb() {
     const { getFirestore } = require('firebase/firestore');
     const app = getFirebaseApp();
     return app ? getFirestore(app) : null;
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 }
@@ -88,27 +119,40 @@ export function getAdminFirebaseDb(): never {
 }
 
 /**
- * Obtém a instância do Firebase Auth
+ * Obtém a instância do Firebase Auth inicializada com persistência via AsyncStorage.
  */
-export function getFirebaseAuth() {
-  try {
-    const { getAuth } = require('firebase/auth');
-    const app = getFirebaseApp();
-    return app ? getAuth(app) : null;
-  } catch (error) {
+export function getFirebaseAuth(): Auth | null {
+  if (authInstance) {
+    return authInstance;
+  }
+  const app = getFirebaseApp();
+  if (!app) {
     return null;
   }
+  try {
+    authInstance = initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage),
+    });
+  } catch (_error) {
+    // Fallback caso já tenha sido inicializado no ciclo de vida
+    try {
+      authInstance = getAuth(app);
+    } catch (_fallbackError) {
+      authInstance = null;
+    }
+  }
+  return authInstance;
 }
 
 /**
- * Obtém a instância do Firebase Storage
+ * Obtém a instância do Firebase Storage.
  */
 export function getFirebaseStorage() {
   try {
     const { getStorage } = require('firebase/storage');
     const app = getFirebaseApp();
     return app ? getStorage(app) : null;
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 }
@@ -136,12 +180,10 @@ export async function ensureFirebaseAuth(): Promise<any> {
         return cred.user;
       }
       return null;
-    } catch (e) {
+    } catch (_e) {
       return null;
     }
   })();
 
   return authInitPromise;
 }
-
-

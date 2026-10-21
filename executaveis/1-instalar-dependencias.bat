@@ -10,7 +10,7 @@ echo.
 
 cd /d "%~dp0\.."
 
-echo [1/5] Instalando dependencias da raiz do monorepo...
+echo [1/6] Instalando dependencias da raiz do monorepo...
 call npm install
 if %ERRORLEVEL% NEQ 0 (
     echo [ERRO] Falha ao instalar dependencias da raiz.
@@ -18,7 +18,7 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo.
-echo [2/5] Instalando dependencias do EcoSmart Cidadao...
+echo [2/6] Instalando dependencias do EcoSmart Cidadao...
 cd "frontend\ecosmart-cidadao"
 call npm install
 if %ERRORLEVEL% NEQ 0 (
@@ -27,7 +27,7 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo.
-echo [3/5] Instalando dependencias do EcoSmart Coletor...
+echo [3/6] Instalando dependencias do EcoSmart Coletor...
 cd "..\ecosmart-coletor"
 call npm install
 if %ERRORLEVEL% NEQ 0 (
@@ -36,7 +36,7 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo.
-echo [4/5] Instalando dependencias do EcoSmart Admin...
+echo [4/6] Instalando dependencias do EcoSmart Admin...
 cd "..\ecosmart-admin"
 call npm install
 if %ERRORLEVEL% NEQ 0 (
@@ -45,8 +45,17 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo.
-echo [5/5] Sincronizando modulos compartilhados (shared)...
-cd "..\.."
+echo [5/6] Instalando dependencias do Backend Modular (backend)...
+cd "..\..\backend"
+call npm install
+if %ERRORLEVEL% NEQ 0 (
+    echo [ERRO] Falha ao instalar dependencias do Backend.
+    goto erro
+)
+
+echo.
+echo [6/6] Sincronizando modulos compartilhados (shared)...
+cd ".."
 call npm run sync:shared
 if %ERRORLEVEL% NEQ 0 (
     echo [ERRO] Falha ao sincronizar modulos compartilhados.

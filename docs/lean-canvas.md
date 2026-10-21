@@ -18,7 +18,7 @@
 * **EcoSmart Empresa/Catador (Porta 8082):** Login Google e E-mail/Senha com RBAC, feed de descartes com cálculo geográfico em tempo real (Haversine), ordenação por proximidade, ações em 1 toque no card (traçado de rota GPS e confirmação de coleta sem troca de tela), ouvintes nativos `onSnapshot`, baixa offline (`offlineSyncPending`), histórico de coletas realizadas e Perfil Operacional de Logística.
 * **EcoSmart Admin (Porta 8083):** Login Google e E-mail/Senha protegido pela Chave Mestre de Segurança (`ADMIN2026`), CRUDs completos com busca em tempo real para resíduos, ecopontos e dicas, painel de registros gerais, exportação de Relatórios de Sustentabilidade ESG em formato CSV e Perfil de Gestão Master.
 * **Servidor Central Backend & Barramento:** API REST em Node.js na porta 3333, barramento de eventos em tempo real via `BroadcastChannel` (0ms), auto-inicialização com `ensure-server.js` e persistência local em JSON.
-* **Qualidade e Testes:** Contratos compartilhados em `shared/models`, tipagem estrita com TypeScript (`tsc --noEmit`), **75 suítes e 386 testes automatizados** com 100% de aprovação e diagnóstico E2E de comunicação (`npm run test:communication`).
+* **Qualidade e Testes:** Contratos compartilhados em `shared/models`, tipagem estrita com TypeScript (`tsc --noEmit`), **77 suítes e 454 testes automatizados** com 100% de aprovação e diagnóstico E2E de comunicação (`npm run test:communication`).
 
 ---
 

@@ -51,8 +51,8 @@ Este documento apresenta o catálogo completo, exaustivo e estruturado de todas 
 
 | Função / Método | Parâmetros Principais | Retorno | Resumo da Funcionalidade |
 | :--- | :--- | :--- | :--- |
-| [`authenticateUser`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre/DESENVOLVIMENTO%20DE%20SISTEMAS%20PARA%20DISPOSITIVOS%20M%C3%93VEIS/Ecosmart_DMM---Mobile/shared/services/authService.ts#L121) | `email, password, expectedRole, registeredUsers` | `{ success, message?, user? }` | Realiza login por e-mail e senha, validando o papel do usuário (RBAC) e bloqueando acessos cruzados. |
-| [`registerUser`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre/DESENVOLVIMENTO%20DE%20SISTEMAS%20PARA%20DISPOSITIVOS%20M%C3%93VEIS/Ecosmart_DMM---Mobile/shared/services/authService.ts#L183) | `name, email, password, role, accessCode?, existingUsers` | `{ success, message?, user?, updatedUsers? }` | Cadastra novo usuário com perfil específico, exigindo o código mestre `ADMIN2026` para administradores. |
+| [`authenticateUser`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre/DESENVOLVIMENTO%20DE%20SISTEMAS%20PARA%20DISPOSITIVOS%20M%C3%93VEIS/Ecosmart_DMM---Mobile/shared/services/authService.ts#L121) | `email, password, expectedRole, registeredUsers` | `{ success, message?, user? }` | Realiza login por e-mail e senha (com verificação de hash/salt), validando o papel do usuário (RBAC) e bloqueando acessos cruzados. |
+| [`registerUser`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre/DESENVOLVIMENTO%20DE%20SISTEMAS%20PARA%20DISPOSITIVOS%20M%C3%93VEIS/Ecosmart_DMM---Mobile/shared/services/authService.ts#L183) | `name, email, password, role, accessCode?, existingUsers` | `{ success, message?, user?, updatedUsers? }` | Cadastra novo usuário com hash seguro de senha e perfil específico, validando Custom Claims/token de servidor para administradores. |
 | [`signInWithGoogle`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre/DESENVOLVIMENTO%20DE%20SISTEMAS%20PARA%20DISPOSITIVOS%20M%C3%93VEIS/Ecosmart_DMM---Mobile/shared/services/authService.ts#L360) | `expectedRole, registeredUsers` | `Promise<{ success, message?, user?, updatedUsers? }>` | Autentica com o Google via Firebase Auth e sincroniza o cadastro do usuário na coleção `usuarios`. |
 | [`requestPasswordReset`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre/DESENVOLVIMENTO%20DE%20SISTEMAS%20PARA%20DISPOSITIVOS%20M%C3%93VEIS/Ecosmart_DMM---Mobile/shared/services/authService.ts#L268) | `email, expectedRole, registeredUsers` | `ResetCodeResult` | Gera um token de verificação temporário (`ECO-XXXX`) para recuperação de contas cadastradas. |
 | [`resetPassword`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre/DESENVOLVIMENTO%20DE%20SISTEMAS%20PARA%20DISPOSITIVOS%20M%C3%93VEIS/Ecosmart_DMM---Mobile/shared/services/authService.ts#L310) | `email, verificationCode, expectedCode, newPassword, registeredUsers` | `ResetPasswordResult & { updatedUsers? }` | Valida o token digitado e atualiza a senha no repositório e no armazenamento local. |
@@ -177,7 +177,7 @@ Este documento apresenta o catálogo completo, exaustivo e estruturado de todas 
 | Repositório | Arquivo | Métodos Disponíveis | Resumo da Funcionalidade |
 | :--- | :--- | :--- | :--- |
 | **`userRepository`** | [`database/repositories/userRepository.ts`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre/DESENVOLVIMENTO%20DE%20SISTEMAS%20PARA%20DISPOSITIVOS%20M%C3%93VEIS/Ecosmart_DMM---Mobile/database/repositories/userRepository.ts) | • `findByEmail(email)`<br>• `findById(id)`<br>• `create(user)`<br>• `update(id, updates)`<br>• `upsert(user)`<br>• `getAll()` | Acesso e persistência da coleção de usuários, perfis RBAC e credenciais. |
-| **`discardRepository`** | [`database/repositories/discardRepository.ts`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre/DESENVOLVIMENTO%20DE%20SISTEMAS%20PARA%20DISPOSITIVOS%20M%C3%93VEIS/Ecosmart_DMM---Mobile/database/repositories/discardRepository.ts) | • `getAllPending(filterType?)`<br>• `getCollected()`<br>• `findById(id)`<br>• `getByUserId(userId)`<br>• `create(discard)`<br>• `markAsCollected(id, coletorId?)` | Consulta de descartes disponíveis, histórico por usuário e baixa de coleta. |
+| **`discardRepository`** | [`database/repositories/discardRepository.ts`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre/DESENVOLVIMENTO%20DE%20SISTEMAS%20PARA%20DISPOSITIVOS%20M%C3%93VEIS/Ecosmart_DMM---Mobile/database/repositories/discardRepository.ts) | • `getAllPending(filterType?)`<br>• `getCollected()`<br>• `findById(id)`<br>• `getByUserId(userId)`<br>• `create(discard)`<br>• `update(id, updates)`<br>• `delete(id)`<br>• `markAsCollected(id, coletorId?)` | Consulta de descartes disponíveis, histórico por usuário, atualização por ID, exclusão e baixa de coleta. |
 | **`adminRepository`** | [`database/repositories/adminRepository.ts`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre/DESENVOLVIMENTO%20DE%20SISTEMAS%20PARA%20DISPOSITIVOS%20M%C3%93VEIS/Ecosmart_DMM---Mobile/database/repositories/adminRepository.ts) | • `getWasteTypes()` / `saveWasteType()` / `deleteWasteType()`<br>• `getPoints()` / `savePoint()` / `deletePoint()`<br>• `getTips()` / `saveTip()` / `deleteTip()` | Operações completas de CRUD sobre catálogos de resíduos, PEVs e dicas. |
 
 ---
@@ -186,8 +186,8 @@ Este documento apresenta o catálogo completo, exaustivo e estruturado de todas 
 
 | Controlador | Arquivo | Métodos Principais | Resumo da Funcionalidade |
 | :--- | :--- | :--- | :--- |
-| **`authController`** | [`backend/src/controllers/authController.ts`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre/DESENVOLVIMENTO%20DE%20SISTEMAS%20PARA%20DISPOSITIVOS%20M%C3%93VEIS/Ecosmart_DMM---Mobile/backend/src/controllers/authController.ts) | • `login(req)`<br>• `register(req)` | Orquestra login e cadastro com validação estrita de perfis RBAC. |
-| **`discardController`** | [`backend/src/controllers/discardController.ts`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre/DESENVOLVIMENTO%20DE%20SISTEMAS%20PARA%20DISPOSITIVOS%20M%C3%93VEIS/Ecosmart_DMM---Mobile/backend/src/controllers/discardController.ts) | • `listAvailable(type?)`<br>• `listCollected()`<br>• `listByUser(userId)`<br>• `create(data)`<br>• `markAsCollected(id, coletorId?)` | Processa criação de descartes, listagens filtradas e confirmação de coletas. |
+| **`authController`** | [`backend/src/controllers/authController.ts`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre/DESENVOLVIMENTO%20DE%20SISTEMAS%20PARA%20DISPOSITIVOS%20M%C3%93VEIS/Ecosmart_DMM---Mobile/backend/src/controllers/authController.ts) | • `login(req)`<br>• `register(req)` | Orquestra login e cadastro com validação estrita de perfis RBAC e hash de senha. |
+| **`discardController`** | [`backend/src/controllers/discardController.ts`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre/DESENVOLVIMENTO%20DE%20SISTEMAS%20PARA%20DISPOSITIVOS%20M%C3%93VEIS/Ecosmart_DMM---Mobile/backend/src/controllers/discardController.ts) | • `listAvailable(type?)`<br>• `listCollected()`<br>• `listByUser(userId)`<br>• `create(data)`<br>• `update(id, updates)`<br>• `delete(id)`<br>• `markAsCollected(id, coletorId?)` | Processa criação, edição, exclusão de descartes, listagens filtradas e confirmação de coletas. |
 | **`adminController`** | [`backend/src/controllers/adminController.ts`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre/DESENVOLVIMENTO%20DE%20SISTEMAS%20PARA%20DISPOSITIVOS%20M%C3%93VEIS/Ecosmart_DMM---Mobile/backend/src/controllers/adminController.ts) | • `getDashboardMetrics()`<br>• `getEsgMetrics()`<br>• CRUDs de Waste Types, Points e Tips | Totalizadores consolidados para dashboard, métricas ESG e CRUDs. |
 | **`syncService`** | [`backend/src/services/syncService.ts`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre/DESENVOLVIMENTO%20DE%20SISTEMAS%20PARA%20DISPOSITIVOS%20M%C3%93VEIS/Ecosmart_DMM---Mobile/backend/src/services/syncService.ts) | • `syncOfflineDiscards(offlineItems)` | Processamento e persistência de lotes criados em modo offline. |
 
@@ -198,11 +198,13 @@ Este documento apresenta o catálogo completo, exaustivo e estruturado de todas 
 | Método HTTP | Rota | Descrição |
 | :--- | :--- | :--- |
 | `GET` | `/api/health` | Diagnóstico de integridade, status e total de descartes. |
-| `GET` | `/api/discards` | Consulta a listagem unificada de descartes (suporta query params `userId` ou `email`). |
-| `POST` | `/api/discards` | Recebe e persiste novos descartes cadastrados. |
+| `GET` | `/api/events` | Stream Server-Sent Events (SSE) para sincronização em tempo real entre dispositivos. |
+| `GET` | `/api/discards` | Consulta a listagem unificada de descartes (suporta query params `userId`, `email`, `limit`, `offset`). |
+| `POST` | `/api/discards` | Recebe e persiste novos descartes cadastrados (requer autenticação). |
+| `PUT` / `PATCH` | `/api/discards/:id` | Atualiza descarte existente preservando o `id` original (validação de proprietário/admin). |
 | `POST` / `PATCH` | `/api/discards/:id/collect` | Registra confirmação e baixa de coleta por um coletor. |
-| `DELETE` | `/api/discards/:id` | Cancela e exclui um descarte do ecossistema. |
-| `GET` | `/api/users` | Retorna lista de usuários cadastrados no ecossistema. |
+| `DELETE` | `/api/discards/:id` | Cancela e exclui um descarte do ecossistema (validação de proprietário/admin). |
+| `GET` | `/api/users` | Retorna lista de usuários cadastrados no ecossistema (sem exposição de senhas). |
 | `POST` | `/api/users` | Insere ou atualiza o perfil de um usuário no banco central. |
 
 ---

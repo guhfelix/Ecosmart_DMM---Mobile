@@ -230,10 +230,15 @@ export class FirebaseService {
               userId: data.userId || data.citizenId || data.usuario_id,
               citizenId: data.citizenId || data.userId || data.usuario_id,
               citizenEmail: data.citizenEmail,
+              citizenName: data.citizenName || data.nome_cidadao,
               type: data.wasteType || data.type,
+              wasteType: data.wasteType || data.type,
               quantity: data.quantity,
+              unit: data.unit,
               observation: data.observation,
-              date: data.createdAt || data.date,
+              date: data.date || data.createdAt,
+              createdAt: data.createdAt || data.date,
+              updatedAt: data.updatedAt || data.createdAt || data.date,
               status: (data.status || '').toLowerCase() === 'coletado' ? 'Coletado' : 'Pendente',
               cep: data.cep,
               address: data.address,
@@ -245,6 +250,7 @@ export class FirebaseService {
               longitude: data.longitude,
               photoUri: data.photoUri,
               offline: false,
+              syncPending: false,
             });
           });
           return items;
@@ -263,27 +269,41 @@ export class FirebaseService {
         }
         return false;
       })
-      .map((d: any) => ({
-        id: d.id,
-        userId: d.userId || d.citizenId || d.usuario_id,
-        citizenId: d.citizenId || d.userId || d.usuario_id,
-        citizenEmail: d.citizenEmail,
-        type: d.wasteType || d.type,
-        quantity: d.quantity,
-        observation: d.observation,
-        date: d.createdAt || d.date,
-        status: (d.status || '').toLowerCase() === 'coletado' ? 'Coletado' : 'Pendente',
-        cep: d.cep,
-        address: d.address,
-        number: d.number,
-        numero: d.numero,
-        neighborhood: d.neighborhood,
-        city: d.city,
-        latitude: d.latitude,
-        longitude: d.longitude,
-        photoUri: d.photoUri,
-        offline: false,
-      }));
+      .map((d: any) => {
+        const isPendingLocal = Boolean(d.offline || d.syncPending || d.offlineSyncPending);
+        const isCollected = (d.status || '').toLowerCase() === 'coletado';
+        return {
+          id: d.id,
+          userId: d.userId || d.citizenId || d.usuario_id,
+          citizenId: d.citizenId || d.userId || d.usuario_id,
+          citizenEmail: d.citizenEmail,
+          citizenName: d.citizenName || d.nome_cidadao,
+          type: d.wasteType || d.type,
+          wasteType: d.wasteType || d.type,
+          quantity: d.quantity,
+          unit: d.unit,
+          observation: d.observation,
+          date: d.date || d.createdAt,
+          createdAt: d.createdAt || d.date,
+          updatedAt: d.updatedAt || d.createdAt || d.date,
+          status: isCollected
+            ? 'Coletado'
+            : isPendingLocal
+            ? 'Pendente (Offline)'
+            : 'Pendente',
+          cep: d.cep,
+          address: d.address,
+          number: d.number,
+          numero: d.numero,
+          neighborhood: d.neighborhood,
+          city: d.city,
+          latitude: d.latitude,
+          longitude: d.longitude,
+          photoUri: d.photoUri,
+          offline: isCollected ? false : isPendingLocal,
+          syncPending: isCollected ? false : isPendingLocal,
+        };
+      });
   }
 
   /**
@@ -314,10 +334,15 @@ export class FirebaseService {
                 userId: data.userId || data.citizenId || data.usuario_id,
                 citizenId: data.citizenId || data.userId || data.usuario_id,
                 citizenEmail: data.citizenEmail,
+                citizenName: data.citizenName || data.nome_cidadao,
                 type: data.wasteType || data.type,
+                wasteType: data.wasteType || data.type,
                 quantity: data.quantity,
+                unit: data.unit,
                 observation: data.observation,
-                date: data.createdAt || data.date,
+                date: data.date || data.createdAt,
+                createdAt: data.createdAt || data.date,
+                updatedAt: data.updatedAt || data.createdAt || data.date,
                 status: (data.status || '').toLowerCase() === 'coletado' ? 'Coletado' : 'Pendente',
                 cep: data.cep,
                 address: data.address,
@@ -329,6 +354,7 @@ export class FirebaseService {
                 longitude: data.longitude,
                 photoUri: data.photoUri,
                 offline: false,
+                syncPending: false,
               });
             });
             callback(items);

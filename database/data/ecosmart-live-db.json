@@ -1,6 +1,33 @@
 {
   "discards": [
     {
+      "id": "disc-9613f999",
+      "userId": "user-cidadao-1",
+      "citizenId": "user-cidadao-1",
+      "citizenEmail": "maria@gmail.com",
+      "citizenName": "Maria Cidadã Pantaneira",
+      "wasteType": "Papel e Papelão",
+      "type": "Papel e Papelão",
+      "quantity": 10,
+      "unit": "unidade",
+      "address": "Rua das Alianças, S/N",
+      "number": "S/N",
+      "numero": "S/N",
+      "neighborhood": "Vila Nova",
+      "city": "Cáceres - MT",
+      "cep": "78217-150",
+      "observation": "Teste para ver",
+      "status": "coletado",
+      "createdAt": "2026-11-04T12:25:51.237Z",
+      "date": "2026-11-04T12:25:51.237Z",
+      "collectedAt": "2026-11-04T12:26:51.168Z",
+      "coletorId": "user-coletor-1",
+      "latitude": -16.0766,
+      "longitude": -57.6816,
+      "distanceKm": 0.8,
+      "updatedAt": "2026-11-04T12:26:51.168Z"
+    },
+    {
       "id": "disc-f478239b",
       "userId": "user-cidadao-1",
       "citizenId": "user-cidadao-1",
@@ -20,12 +47,12 @@
       "status": "coletado",
       "createdAt": "2026-10-21T18:12:43.680Z",
       "date": "2026-10-21T18:12:43.680Z",
-      "collectedAt": "2026-10-21T18:13:06.906Z",
+      "collectedAt": "2026-11-04T12:26:47.567Z",
       "coletorId": "user-coletor-1",
       "latitude": -16.0766,
       "longitude": -57.6816,
       "distanceKm": 0.8,
-      "updatedAt": "2026-10-21T18:13:06.906Z"
+      "updatedAt": "2026-11-04T12:26:47.567Z"
     }
   ],
   "users": [
@@ -75,5 +102,5 @@
       "bio": "Gestão e monitoramento ambiental do município de Cáceres - MT."
     }
   ],
-  "lastUpdated": "2026-10-21T18:16:37.759Z"
+  "lastUpdated": "2026-11-04T12:27:23.537Z"
 }

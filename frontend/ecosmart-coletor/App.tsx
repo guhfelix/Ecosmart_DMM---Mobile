@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -61,7 +61,40 @@ export default function App() {
   const [isReady, setIsReady] = useState(false);
 
   // Hook reativo de detecção de conectividade
-  const { isOffline } = useNetworkStatus();
+  const { isOffline, isServerReachable } = useNetworkStatus();
+  const wasOfflineRef = useRef(isOffline);
+
+  /** Quantidade de coletas pendentes de sincronização com a nuvem */
+  const pendingOfflineCount = useMemo(
+    () =>
+      items.filter(
+        (i) => i.offlineSyncPending === true || (i as any).syncPending === true
+      ).length,
+    [items]
+  );
+
+  // --- Efeito de Alerta Imediato ao Ficar Offline / Reconectar ---
+  useEffect(() => {
+    if (!isReady) {
+      wasOfflineRef.current = isOffline;
+      return;
+    }
+    if (isOffline && !wasOfflineRef.current) {
+      wasOfflineRef.current = true;
+      setFeedback(
+        '⚠️ Você está offline. Suas coletas serão salvas no dispositivo e sincronizadas automaticamente ao reconectar.'
+      );
+      const offlineNotif = createNotification(
+        'Modo Offline Ativado',
+        'Sem conexão com a internet. As coletas registradas continuarão salvas com segurança no aparelho.',
+        'sync'
+      );
+      setNotifications((prev) => [offlineNotif, ...prev]);
+    } else if (!isOffline && wasOfflineRef.current) {
+      wasOfflineRef.current = false;
+      setFeedback('🔄 Conexão restabelecida! Sincronizando coletas com a nuvem...');
+    }
+  }, [isOffline, isReady]);
 
   // --- Efeito 1: Carregar dados salvos no dispositivo e sincronizar com persistência completa ---
   useEffect(() => {
@@ -91,12 +124,15 @@ export default function App() {
             const existing = map.get(d.id);
             const isCollected =
               existing?.status === 'coletado' || d.status === 'coletado';
+            const keepOfflinePending =
+              existing?.offlineSyncPending && d.status !== 'coletado';
             map.set(d.id, {
               ...existing,
               ...d,
               status: isCollected ? 'coletado' : d.status,
               collectedAt: d.collectedAt || existing?.collectedAt,
               coletorId: d.coletorId || existing?.coletorId,
+              offlineSyncPending: keepOfflinePending ? true : false,
             });
           });
           mergedDiscards = Array.from(map.values());
@@ -318,23 +354,44 @@ export default function App() {
   useEffect(() => {
     if (!isReady || isOffline) return;
 
-    const { updatedDiscards, syncedCount } =
-      autoSyncService.processAutoSyncCollectorDiscards(items, isOffline);
+    let cancelled = false;
+    const syncCollectorPending = async () => {
+      const { updatedDiscards, syncedCount } =
+        await autoSyncService.processAutoSyncCollectorDiscardsAsync(
+          items,
+          isOffline,
+          currentUser?.id
+        );
 
-    if (syncedCount > 0) {
-      setItems(updatedDiscards);
-      const newNotif = createNotification(
-        'Coletas Sincronizadas',
-        `${syncedCount} ${
-          syncedCount === 1
-            ? 'coleta realizada foi confirmada'
-            : 'coletas realizadas foram confirmadas'
-        } no servidor.`,
-        'sync'
-      );
-      setNotifications((prev) => [newNotif, ...prev]);
-    }
-  }, [isOffline, isReady]);
+      if (!cancelled && syncedCount > 0) {
+        setItems(updatedDiscards);
+        try {
+          await AsyncStorage.setItem(
+            STORAGE_KEYS.COLETOR.DATA,
+            JSON.stringify(updatedDiscards)
+          );
+        } catch {
+          // Ignora falha de escrita secundária
+        }
+        const newNotif = createNotification(
+          'Coletas Sincronizadas',
+          `${syncedCount} ${
+            syncedCount === 1
+              ? 'coleta realizada foi confirmada'
+              : 'coletas realizadas foram confirmadas'
+          } na nuvem.`,
+          'sync'
+        );
+        setNotifications((prev) => [newNotif, ...prev]);
+        setFeedback(`✓ ${syncedCount} coleta(s) sincronizada(s) com a nuvem!`);
+      }
+    };
+
+    syncCollectorPending();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOffline, isReady, currentUser?.id]);
 
   useEffect(() => {
     if (!isReady) return;
@@ -412,21 +469,62 @@ export default function App() {
       const collectedDate = new Date().toLocaleDateString('pt-BR');
       const collectorId = currentUser?.id || 'user-coletor-1';
 
-      setItems((prev) =>
-        prev.map((item) =>
+      const optimisticList = items.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              status: 'coletado' as const,
+              collectedAt: collectedDate,
+              coletorId: collectorId,
+              offlineSyncPending: true,
+              syncPending: true,
+            }
+          : item
+      );
+      setItems(optimisticList);
+
+      // Salva localmente imediatamente antes da chamada de rede
+      try {
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.COLETOR.DATA,
+          JSON.stringify(optimisticList)
+        );
+      } catch (e) {
+        console.warn('Falha ao persistir coleta localmente:', e);
+      }
+
+      const remoteSynced = isOffline
+        ? false
+        : await crossAppSync.markAsCollected(id, collectorId);
+
+      if (remoteSynced) {
+        const confirmedList = optimisticList.map((item) =>
           item.id === id
             ? {
                 ...item,
-                status: 'coletado',
-                collectedAt: collectedDate,
-                coletorId: collectorId,
-                offlineSyncPending: isOffline,
+                offlineSyncPending: false,
+                syncPending: false,
               }
             : item
-        )
-      );
-
-      await crossAppSync.markAsCollected(id, collectorId);
+        );
+        setItems(confirmedList);
+        try {
+          await AsyncStorage.setItem(
+            STORAGE_KEYS.COLETOR.DATA,
+            JSON.stringify(confirmedList)
+          );
+        } catch {
+          // Ignora erro secundário
+        }
+      } else {
+        autoSyncService.enqueueMutation(
+          'COLLECT_DISCARD',
+          { id, coletorId: collectorId, collectedAt: collectedDate },
+          collectorId,
+          id
+        );
+        await autoSyncService.saveOutboxQueue(collectorId);
+      }
 
       const newNotif = createNotification(
         'Coleta Concluída',
@@ -436,7 +534,11 @@ export default function App() {
         'collection'
       );
       setNotifications((prev) => [newNotif, ...prev]);
-      setFeedback('✓ Coleta registrada com sucesso.');
+      setFeedback(
+        remoteSynced
+          ? '✓ Coleta registrada e sincronizada com a nuvem.'
+          : '✓ Coleta salva localmente (Offline). Será sincronizada quando a conexão voltar.'
+      );
 
       setScreen('collected');
     },
@@ -704,7 +806,11 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <OfflineBanner isOffline={isOffline} />
+      <OfflineBanner
+        isOffline={isOffline}
+        isServerReachable={isServerReachable}
+        pendingCount={pendingOfflineCount}
+      />
       {currentUser ? (
         <ScreenTransition screenKey={screen}>{renderScreen}</ScreenTransition>
       ) : (

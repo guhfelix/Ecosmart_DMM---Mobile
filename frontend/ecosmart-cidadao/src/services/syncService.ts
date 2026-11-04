@@ -236,12 +236,44 @@ export function reconcileCitizenDiscards(
     mergedMap.set(local.id, normalizeToCitizenDiscard(local));
   }
 
+  // 1.5. Garante que qualquer CREATE ou UPDATE salvo na fila Outbox seja reconstruído/preservado
+  // mesmo que a lista local tenha fechado antes de persistir o snapshot completo (Zero Data Loss)
+  for (const [dId, mutation] of pendingMutationsByDiscardId.entries()) {
+    if (!dId || deletedIds.has(dId)) continue;
+    if (
+      (mutation.action === 'CREATE' ||
+        mutation.action === 'CREATE_DISCARD' ||
+        mutation.action === 'UPDATE') &&
+      mutation.payload &&
+      typeof mutation.payload === 'object'
+    ) {
+      const existing = mergedMap.get(dId);
+      const isCollected = existing?.status === 'Coletado';
+      const restored = normalizeToCitizenDiscard({
+        ...(existing || {}),
+        ...mutation.payload,
+        id: dId,
+        offline: !isCollected,
+        syncPending: !isCollected,
+        status: isCollected ? 'Coletado' : 'Pendente (Offline)',
+      });
+      mergedMap.set(dId, restored);
+    }
+  }
+
   // 2. Concilia com itens remotos respeitando precedência da fila local e updatedAt (LWW)
   for (const rawRemote of remoteItems) {
+    if (!rawRemote) continue;
+    const isFromPendingCache = Boolean(
+      (rawRemote as any).offline ||
+        (rawRemote as any).syncPending ||
+        (rawRemote as any).offlineSyncPending ||
+        rawRemote.status === 'Pendente (Offline)'
+    );
     const remote = normalizeToCitizenDiscard({
       ...rawRemote,
-      offline: false,
-      syncPending: false,
+      offline: isFromPendingCache,
+      syncPending: isFromPendingCache,
     });
     if (!remote.id || deletedIds.has(remote.id)) continue;
 
@@ -282,8 +314,8 @@ export function reconcileCitizenDiscards(
           ...existingLocal,
           ...remote,
           status: isCollected ? 'Coletado' : remote.status,
-          offline: false,
-          syncPending: false,
+          offline: isCollected ? false : isFromPendingCache,
+          syncPending: isCollected ? false : isFromPendingCache,
         });
       }
     }
@@ -309,6 +341,7 @@ export class AutoSyncService {
   private tombstones: Set<string> = new Set();
   private activeUserId?: string;
   private remoteExecutor?: (mutation: OutboxMutation) => Promise<boolean>;
+  private isSyncingCitizen = false;
 
   /**
    * Configura o executor remoto padrão para envio das mutações da fila.
@@ -342,13 +375,17 @@ export class AutoSyncService {
   }
 
   /**
-   * Carrega a fila de mutações pendentes e tombstones do AsyncStorage para o usuário (A4-04 / A4-05).
+   * Carrega a fila de mutações pendentes e tombstones do AsyncStorage para o usuário (A4-04 / A4-05),
+   * mesclando de forma segura com mutações já presentes em memória para evitar perda por condição de corrida.
    */
   async loadOutboxQueue(userId?: string): Promise<OutboxMutation[]> {
+    const previousUserId = this.activeUserId;
     if (userId !== undefined) {
       this.activeUserId = userId;
     }
     const targetUserId = userId ?? this.activeUserId;
+    const isSameUserContext = !previousUserId || !userId || previousUserId === userId;
+
     try {
       const [rawOutbox, rawTombstones] = await Promise.all([
         AsyncStorage.getItem(getOutboxStorageKey(targetUserId)),
@@ -358,14 +395,43 @@ export class AutoSyncService {
       if (rawOutbox) {
         const parsed = JSON.parse(rawOutbox);
         if (Array.isArray(parsed)) {
-          this.outboxQueue = parsed;
+          if (isSameUserContext && this.outboxQueue.length > 0) {
+            const mergedByDiscard = new Map<string, OutboxMutation>();
+            for (const m of parsed) {
+              if (m && m.discardId) mergedByDiscard.set(`${m.action}_${m.discardId}`, m);
+            }
+            for (const mem of this.outboxQueue) {
+              if (mem && mem.discardId && (!targetUserId || !mem.userId || mem.userId === targetUserId)) {
+                if (mem.action === 'DELETE') {
+                  for (const key of Array.from(mergedByDiscard.keys())) {
+                    if (key.endsWith(`_${mem.discardId}`)) {
+                      mergedByDiscard.delete(key);
+                    }
+                  }
+                }
+                mergedByDiscard.set(`${mem.action}_${mem.discardId}`, mem);
+              }
+            }
+            this.outboxQueue = Array.from(mergedByDiscard.values());
+          } else {
+            this.outboxQueue = parsed;
+          }
         }
+      } else if (!isSameUserContext) {
+        this.outboxQueue = [];
       }
+
       if (rawTombstones) {
         const parsedT = JSON.parse(rawTombstones);
         if (Array.isArray(parsedT)) {
-          this.tombstones = new Set(parsedT);
+          if (isSameUserContext && this.tombstones.size > 0) {
+            parsedT.forEach((id: string) => this.tombstones.add(id));
+          } else {
+            this.tombstones = new Set(parsedT);
+          }
         }
+      } else if (!isSameUserContext) {
+        this.tombstones = new Set();
       }
     } catch (err) {
       // Fallback silencioso para memória
@@ -530,101 +596,138 @@ export class AutoSyncService {
       syncExecutor?: (mutation: OutboxMutation) => Promise<boolean>;
     }
   ): Promise<{ updatedDiscards: DiscardItem[]; syncedCount: number; failedCount: number }> {
-    if (isOffline) {
+    if (isOffline || this.isSyncingCitizen) {
       return { updatedDiscards: discards, syncedCount: 0, failedCount: 0 };
     }
 
-    const targetUserId = options?.userId ?? this.activeUserId;
-    await this.loadOutboxQueue(targetUserId);
+    this.isSyncingCitizen = true;
+    try {
+      const targetUserId = options?.userId ?? this.activeUserId;
+      await this.loadOutboxQueue(targetUserId);
 
-    // Garante que qualquer item marcado como offline/syncPending na lista também esteja representado na fila
-    for (const item of discards) {
-      const isPending =
-        item.status === 'Pendente (Offline)' || Boolean(item.offline || item.syncPending);
-      if (isPending && !this.isTombstoned(item.id)) {
-        const alreadyQueued = this.outboxQueue.some((m) => m.discardId === item.id);
-        if (!alreadyQueued) {
-          this.enqueueMutation('CREATE', item, targetUserId, item.id);
-        }
-      }
-    }
-
-    const executor = options?.syncExecutor || this.remoteExecutor;
-    const syncedIds = new Set<string>();
-    const failedIds = new Set<string>();
-    const remainingQueue: OutboxMutation[] = [];
-    let syncedCount = 0;
-    let failedCount = 0;
-
-    for (const mutation of this.outboxQueue) {
-      let confirmed = false;
-      try {
-        if (executor) {
-          confirmed = await executor(mutation);
-        } else {
-          // Se não houver executor customizado, tenta usar o crossAppSync registrado dinamicamente
-          const { crossAppSync } = require('./crossAppSync');
-          if (mutation.action === 'DELETE') {
-            confirmed = await crossAppSync.deleteDiscard(
-              mutation.discardId,
-              'cidadao',
-              mutation.userId || targetUserId
-            );
-          } else if (mutation.action === 'UPDATE') {
-            const res = await crossAppSync.updateDiscard(
-              mutation.discardId,
-              mutation.payload,
-              'cidadao'
-            );
-            confirmed = Boolean(res?.remoteSynced || res?.success);
-          } else {
-            const res = await crossAppSync.postNewDiscard(mutation.payload, 'cidadao');
-            confirmed = Boolean(res?.remoteSynced || res?.success);
+      // Garante que qualquer item marcado como offline/syncPending na lista também esteja representado na fila
+      for (const item of discards) {
+        const isPending =
+          item.status === 'Pendente (Offline)' || Boolean(item.offline || item.syncPending);
+        if (isPending && !this.isTombstoned(item.id)) {
+          const alreadyQueued = this.outboxQueue.some((m) => m.discardId === item.id);
+          if (!alreadyQueued) {
+            this.enqueueMutation('CREATE', item, targetUserId, item.id);
           }
         }
-      } catch (err) {
-        confirmed = false;
       }
 
-      if (confirmed) {
-        syncedCount += 1;
-        syncedIds.add(mutation.discardId);
-        if (mutation.action === 'DELETE') {
-          await this.removeTombstone(mutation.discardId, targetUserId);
+      const executor = options?.syncExecutor || this.remoteExecutor;
+      const syncedIds = new Set<string>();
+      const failedIds = new Set<string>();
+      const remainingQueue: OutboxMutation[] = [];
+      let syncedCount = 0;
+      let failedCount = 0;
+
+      const queueSnapshot = [...this.outboxQueue];
+      for (const mutation of queueSnapshot) {
+        let confirmed = false;
+        try {
+          if (executor) {
+            confirmed = await executor(mutation);
+          } else {
+            // Se não houver executor customizado, tenta usar o crossAppSync registrado dinamicamente
+            const { crossAppSync } = require('./crossAppSync');
+            if (mutation.action === 'DELETE') {
+              confirmed = await crossAppSync.deleteDiscard(
+                mutation.discardId,
+                'cidadao',
+                mutation.userId || targetUserId
+              );
+            } else if (mutation.action === 'UPDATE') {
+              const res = await crossAppSync.updateDiscard(
+                mutation.discardId,
+                mutation.payload,
+                'cidadao'
+              );
+              confirmed = Boolean(res?.remoteSynced || res?.success);
+            } else {
+              const res = await crossAppSync.postNewDiscard(mutation.payload, 'cidadao');
+              confirmed = Boolean(res?.remoteSynced || res?.success);
+            }
+          }
+        } catch (err) {
+          confirmed = false;
         }
-      } else {
-        failedCount += 1;
-        failedIds.add(mutation.discardId);
-        remainingQueue.push({
-          ...mutation,
-          retryCount: (mutation.retryCount || 0) + 1,
-        });
+
+        if (confirmed) {
+          syncedCount += 1;
+          syncedIds.add(mutation.discardId);
+          if (mutation.action === 'DELETE') {
+            await this.removeTombstone(mutation.discardId, targetUserId);
+          }
+        } else {
+          failedCount += 1;
+          failedIds.add(mutation.discardId);
+          remainingQueue.push({
+            ...mutation,
+            retryCount: (mutation.retryCount || 0) + 1,
+          });
+        }
       }
-    }
 
-    this.outboxQueue = remainingQueue;
-    await this.saveOutboxQueue(targetUserId);
+      this.outboxQueue = remainingQueue;
+      await this.saveOutboxQueue(targetUserId);
 
-    const activeTombstones = this.getTombstoneSet();
-    const updatedDiscards = discards
-      .filter((item) => !activeTombstones.has(item.id))
-      .map((item) => {
+      const activeTombstones = this.getTombstoneSet();
+      const updatedMap = new Map<string, DiscardItem>();
+
+      for (const item of discards) {
+        if (!item || !item.id || activeTombstones.has(item.id)) continue;
         if (syncedIds.has(item.id) && !failedIds.has(item.id)) {
-          return {
+          updatedMap.set(item.id, {
             ...item,
             status: item.status === 'Coletado' ? ('Coletado' as const) : ('Pendente' as const),
             offline: false,
             syncPending: false,
-          };
+          });
+        } else {
+          updatedMap.set(item.id, item);
         }
-        return item;
-      });
+      }
 
-    return { updatedDiscards, syncedCount, failedCount };
+      // Garante que itens da fila que não estavam no array discards não sejam perdidos
+      for (const mutation of queueSnapshot) {
+        if (
+          mutation.action !== 'DELETE' &&
+          mutation.discardId &&
+          !activeTombstones.has(mutation.discardId) &&
+          !updatedMap.has(mutation.discardId) &&
+          mutation.payload &&
+          typeof mutation.payload === 'object'
+        ) {
+          const isNowSynced =
+            syncedIds.has(mutation.discardId) && !failedIds.has(mutation.discardId);
+          updatedMap.set(
+            mutation.discardId,
+            normalizeToCitizenDiscard({
+              ...mutation.payload,
+              id: mutation.discardId,
+              offline: !isNowSynced,
+              syncPending: !isNowSynced,
+              status: isNowSynced ? 'Pendente' : 'Pendente (Offline)',
+            })
+          );
+        }
+      }
+
+      return {
+        updatedDiscards: Array.from(updatedMap.values()),
+        syncedCount,
+        failedCount,
+      };
+    } finally {
+      this.isSyncingCitizen = false;
+    }
   }
 
   /**
-   * Sincroniza coletas marcadas pelo Coletor em modo offline.
+   * Sincroniza coletas marcadas pelo Coletor em modo offline (versão síncrona compatível).
    */
   processAutoSyncCollectorDiscards(
     discards: CollectorDiscard[],
@@ -651,6 +754,63 @@ export class AutoSyncService {
     this.saveOutboxQueue().catch(() => {});
 
     return { updatedDiscards, syncedCount };
+  }
+
+  /**
+   * Sincroniza de forma assíncrona e verificada as coletas marcadas pelo Coletor em modo offline.
+   */
+  async processAutoSyncCollectorDiscardsAsync(
+    discards: CollectorDiscard[],
+    isOffline: boolean,
+    collectorId?: string
+  ): Promise<{ updatedDiscards: CollectorDiscard[]; syncedCount: number; failedCount: number }> {
+    if (isOffline) {
+      return { updatedDiscards: discards, syncedCount: 0, failedCount: 0 };
+    }
+
+    let syncedCount = 0;
+    let failedCount = 0;
+    const syncedIds = new Set<string>();
+    const { crossAppSync } = require('./crossAppSync');
+
+    for (const item of discards) {
+      if (item.offlineSyncPending || item.syncPending) {
+        try {
+          const ok = await crossAppSync.markAsCollected(
+            item.id,
+            item.coletorId || collectorId || 'user-coletor-1'
+          );
+          if (ok) {
+            syncedCount += 1;
+            syncedIds.add(item.id);
+          } else {
+            failedCount += 1;
+          }
+        } catch (_err) {
+          failedCount += 1;
+        }
+      }
+    }
+
+    if (syncedIds.size > 0) {
+      this.outboxQueue = this.outboxQueue.filter(
+        (m) => !(m.action === 'COLLECT_DISCARD' && syncedIds.has(m.discardId))
+      );
+      await this.saveOutboxQueue(collectorId);
+    }
+
+    const updatedDiscards = discards.map((item) => {
+      if (syncedIds.has(item.id)) {
+        return {
+          ...item,
+          offlineSyncPending: false,
+          syncPending: false,
+        };
+      }
+      return item;
+    });
+
+    return { updatedDiscards, syncedCount, failedCount };
   }
 
   /**

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -90,7 +90,31 @@ export default function App() {
   const [isReady, setIsReady] = useState(false);
 
   // Hook reativo de conectividade
-  const { isOffline } = useNetworkStatus();
+  const { isOffline, isServerReachable } = useNetworkStatus();
+  const wasOfflineRef = useRef(isOffline);
+
+  // --- Efeito de Alerta Imediato ao Ficar Offline / Reconectar ---
+  useEffect(() => {
+    if (!isReady) {
+      wasOfflineRef.current = isOffline;
+      return;
+    }
+    if (isOffline && !wasOfflineRef.current) {
+      wasOfflineRef.current = true;
+      setFeedback(
+        '⚠️ Você está offline. Suas alterações e registros serão salvos no dispositivo e sincronizados automaticamente ao reconectar.'
+      );
+      const offlineNotif = createNotification(
+        'Modo Offline Ativado',
+        'Sem conexão com a internet. Os dados administrativos continuam salvos localmente.',
+        'sync'
+      );
+      setNotifications((prev) => [offlineNotif, ...prev]);
+    } else if (!isOffline && wasOfflineRef.current) {
+      wasOfflineRef.current = false;
+      setFeedback('🔄 Conexão restabelecida! Sincronizando dados administrativos com a nuvem...');
+    }
+  }, [isOffline, isReady]);
 
   // --- Efeito 1: Carregar todos os dados salvos localmente e da nuvem com persistência de perfil ---
   useEffect(() => {
@@ -679,7 +703,10 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <OfflineBanner isOffline={isOffline} />
+      <OfflineBanner
+        isOffline={isOffline}
+        isServerReachable={isServerReachable}
+      />
       {currentUser ? (
         <ScreenTransition screenKey={screen}>{renderScreen}</ScreenTransition>
       ) : (

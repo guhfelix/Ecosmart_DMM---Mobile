@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -74,10 +74,39 @@ export default function App() {
     variant: 'success' | 'info' | 'warning' | 'danger';
   } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const wasOfflineRef = useRef<boolean | null>(null);
 
   // Hook reativo de detecção de conectividade e saúde do servidor (Health Check ativo)
   const { isOffline, isServerReachable } = useNetworkStatus();
+
+  /**
+   * Persiste imediatamente e de forma atômica os descartes do usuário no AsyncStorage,
+   * garantindo que nenhuma operação seja perdida caso o app seja encerrado abruptamente.
+   */
+  const persistUserDiscardsLocally = useCallback(
+    async (userId: string | undefined, list: DiscardItem[]) => {
+      try {
+        const serialized = JSON.stringify(list);
+        const writes: Promise<void>[] = [
+          AsyncStorage.setItem(STORAGE_KEYS.CIDADAO.DISCARDS, serialized),
+        ];
+        if (userId) {
+          writes.push(
+            AsyncStorage.setItem(
+              `${STORAGE_KEYS.CIDADAO.DISCARDS}_${userId}`,
+              serialized
+            )
+          );
+        }
+        await Promise.all(writes);
+      } catch (error) {
+        console.warn('Falha ao persistir descartes localmente:', error);
+      }
+    },
+    []
+  );
 
   /**
    * Concilia descartes locais e remotos respeitando a fila offline persistente e tombstones (A4-05 / A4-06).
@@ -91,12 +120,28 @@ export default function App() {
 
         let localList: DiscardItem[] = currentLocalItems || [];
         if (!currentLocalItems) {
-          const storedUserDiscards = await AsyncStorage.getItem(
-            `${STORAGE_KEYS.CIDADAO.DISCARDS}_${user.id}`
-          );
-          localList = storedUserDiscards
-            ? (JSON.parse(storedUserDiscards) as any[]).map(normalizeToCitizenDiscard)
-            : [];
+          const [storedUserDiscards, storedFallbackDiscards] = await Promise.all([
+            AsyncStorage.getItem(`${STORAGE_KEYS.CIDADAO.DISCARDS}_${user.id}`),
+            AsyncStorage.getItem(STORAGE_KEYS.CIDADAO.DISCARDS),
+          ]);
+          if (storedUserDiscards) {
+            localList = (JSON.parse(storedUserDiscards) as any[]).map(
+              normalizeToCitizenDiscard
+            );
+          } else if (storedFallbackDiscards) {
+            const parsedFallback = JSON.parse(storedFallbackDiscards);
+            if (Array.isArray(parsedFallback)) {
+              const lowerEmail = user.email.trim().toLowerCase();
+              localList = parsedFallback
+                .filter(
+                  (d: any) =>
+                    d.userId === user.id ||
+                    d.citizenId === user.id ||
+                    (d.citizenEmail || '').trim().toLowerCase() === lowerEmail
+                )
+                .map(normalizeToCitizenDiscard);
+            }
+          }
         }
 
         const remoteRaw = await crossAppSync.fetchDiscardsByUser(user.id, user.email);
@@ -111,12 +156,13 @@ export default function App() {
           tombstones
         );
         setItems(reconciled);
+        await persistUserDiscardsLocally(user.id, reconciled);
         return reconciled;
       } catch (e) {
         return currentLocalItems || [];
       }
     },
-    []
+    [persistUserDiscardsLocally]
   );
 
   // --- Efeito 1: Carregar dados salvos no dispositivo e restaurar sessão do Cidadão ---
@@ -194,24 +240,8 @@ export default function App() {
   // --- Efeito 2: Salvar descartes no AsyncStorage isolado por usuário ---
   useEffect(() => {
     if (!isReady || !currentUser) return;
-
-    const saveDiscards = async () => {
-      try {
-        const serialized = JSON.stringify(items);
-        await Promise.all([
-          AsyncStorage.setItem(
-            `${STORAGE_KEYS.CIDADAO.DISCARDS}_${currentUser.id}`,
-            serialized
-          ),
-          AsyncStorage.setItem(STORAGE_KEYS.CIDADAO.DISCARDS, serialized),
-        ]);
-      } catch (error) {
-        console.warn('Falha ao salvar descartes locais:', error);
-      }
-    };
-
-    saveDiscards();
-  }, [items, isReady, currentUser]);
+    persistUserDiscardsLocally(currentUser.id, items);
+  }, [items, isReady, currentUser, persistUserDiscardsLocally]);
 
   // --- Efeito 3: Barramento de Eventos em Tempo Real (0ms) ---
   useEffect(() => {
@@ -268,58 +298,109 @@ export default function App() {
   }, [registeredUsers, isReady]);
 
   // --- Efeito 5: Sincronização Real e Reenvio Automático da Fila Offline ao Reestabelecer Conexão / Saúde da API (A4-03, A4-04, A4-06, A4-07) ---
-  const hasPendingOfflineItems = useMemo(
-    () =>
-      items.some(
-        (item) =>
-          item.syncPending || item.offline || item.status === 'Pendente (Offline)'
-      ),
-    [items]
-  );
+  const pendingOfflineCount = useMemo(() => {
+    const pendingInList = items.filter(
+      (item) =>
+        item.syncPending || item.offline || item.status === 'Pendente (Offline)'
+    ).length;
+    const outboxCount = autoSyncService.getPendingMutationCount();
+    return Math.max(pendingInList, outboxCount);
+  }, [items]);
+
+  const hasPendingOfflineItems = pendingOfflineCount > 0;
 
   const flushOfflineQueueAndReconcile = useCallback(async () => {
     if (!isReady || isOffline || isServerReachable === false || !currentUser) {
       return;
     }
 
-    const { updatedDiscards, syncedCount, failedCount } =
-      await autoSyncService.processAutoSyncCitizenDiscards(items, isOffline, {
-        userId: currentUser.id,
-      });
+    setIsSyncing(true);
+    try {
+      const { updatedDiscards, syncedCount, failedCount } =
+        await autoSyncService.processAutoSyncCitizenDiscards(items, isOffline, {
+          userId: currentUser.id,
+        });
 
-    if (syncedCount > 0) {
-      setItems(updatedDiscards);
-      const newNotif = createNotification(
-        'Sincronização Concluída',
-        `${syncedCount} ${
-          syncedCount === 1
-            ? 'operação pendente foi sincronizada'
-            : 'operações pendentes foram sincronizadas'
-        } com sucesso na nuvem.`,
-        'sync'
-      );
-      setNotifications((prev) => [newNotif, ...prev]);
-      setFeedback({
-        message: '✓ Sincronizado na nuvem com sucesso.',
-        variant: 'success',
-      });
-    } else if (failedCount > 0) {
-      setFeedback({
-        message:
-          '⏳ Salvo localmente (offline): servidor indisponível, tentativa agendada na fila.',
-        variant: 'warning',
-      });
+      if (syncedCount > 0) {
+        setItems(updatedDiscards);
+        await persistUserDiscardsLocally(currentUser.id, updatedDiscards);
+        const newNotif = createNotification(
+          'Sincronização Concluída',
+          `${syncedCount} ${
+            syncedCount === 1
+              ? 'operação pendente foi sincronizada'
+              : 'operações pendentes foram sincronizadas'
+          } com sucesso na nuvem.`,
+          'sync'
+        );
+        setNotifications((prev) => [newNotif, ...prev]);
+        setFeedback({
+          message: `✓ Conexão restabelecida: ${syncedCount} ${
+            syncedCount === 1 ? 'registro sincronizado' : 'registros sincronizados'
+          } na nuvem com sucesso.`,
+          variant: 'success',
+        });
+      } else if (failedCount > 0) {
+        setFeedback({
+          message:
+            '⏳ Salvo localmente (offline): servidor indisponível, tentativa agendada na fila.',
+          variant: 'warning',
+        });
+      }
+
+      await syncAndReconcileUserDiscards(currentUser, updatedDiscards);
+    } finally {
+      setIsSyncing(false);
     }
-
-    await syncAndReconcileUserDiscards(currentUser, updatedDiscards);
   }, [
     currentUser,
     isOffline,
     isReady,
     isServerReachable,
     items,
+    persistUserDiscardsLocally,
     syncAndReconcileUserDiscards,
   ]);
+
+  // --- Efeito 4.9: Aviso imediato ao ficar offline e ao recuperar a conexão ---
+  useEffect(() => {
+    if (!isReady) return;
+
+    if (wasOfflineRef.current === null) {
+      wasOfflineRef.current = isOffline;
+      if (isOffline) {
+        setFeedback({
+          message:
+            '⚠️ Você está offline: todas as alterações serão salvas localmente no dispositivo e sincronizadas quando a conexão voltar.',
+          variant: 'warning',
+        });
+      }
+      return;
+    }
+
+    if (!wasOfflineRef.current && isOffline) {
+      wasOfflineRef.current = true;
+      setFeedback({
+        message:
+          '⚠️ Conexão interrompida: modo offline ativado. Seus dados estão seguros no dispositivo e serão sincronizados ao reconectar.',
+        variant: 'warning',
+      });
+      const offlineNotif = createNotification(
+        'Modo Offline Ativado',
+        'A conexão com a internet foi interrompida. Você pode continuar cadastrando e editando descartes normalmente; tudo será salvo no celular e sincronizado automaticamente quando a rede voltar.',
+        'sync'
+      );
+      setNotifications((prev) => [offlineNotif, ...prev]);
+    } else if (wasOfflineRef.current && !isOffline) {
+      wasOfflineRef.current = false;
+      if (!hasPendingOfflineItems) {
+        setFeedback({
+          message: '✓ Conexão restabelecida: aplicativo online e sincronizado.',
+          variant: 'info',
+        });
+      }
+    }
+  }, [isOffline, isReady, hasPendingOfflineItems]);
 
   useEffect(() => {
     if (!isReady || isOffline || isServerReachable === false || !currentUser) {
@@ -398,13 +479,22 @@ export default function App() {
         status: 'Pendente (Offline)',
       };
 
-      // 1. Grava primeiro localmente e enfileira no Outbox persistente (A4-04)
+      // 1. Grava primeiro localmente no AsyncStorage e enfileira no Outbox persistente (A4-04)
+      const listWithPending = [
+        initialPendingItem,
+        ...items.filter((existing) => existing.id !== initialPendingItem.id),
+      ];
+      setItems(listWithPending);
       autoSyncService.enqueueMutation(
         'CREATE',
         initialPendingItem,
         currentUser?.id,
         initialPendingItem.id
       );
+      await Promise.all([
+        persistUserDiscardsLocally(currentUser?.id, listWithPending),
+        autoSyncService.saveOutboxQueue(currentUser?.id),
+      ]);
 
       let remoteConfirmed = false;
       if (!isOffline) {
@@ -439,10 +529,12 @@ export default function App() {
         syncPending: !remoteConfirmed,
       };
 
-      setItems((prev) => [
+      const finalList = [
         finalItem,
-        ...prev.filter((existing) => existing.id !== finalItem.id),
-      ]);
+        ...items.filter((existing) => existing.id !== finalItem.id),
+      ];
+      setItems(finalList);
+      await persistUserDiscardsLocally(currentUser?.id, finalList);
 
       setFeedback({
         message: remoteConfirmed
@@ -465,7 +557,7 @@ export default function App() {
       );
       setNotifications((prev) => [newNotif, ...prev]);
     },
-    [currentUser, isOffline]
+    [currentUser, isOffline, items, persistUserDiscardsLocally]
   );
 
   /**
@@ -492,13 +584,21 @@ export default function App() {
           updatedItem.status === 'Coletado' ? 'Coletado' : 'Pendente (Offline)',
       };
 
-      // 1. Registra operação UPDATE na fila persistente antes da tentativa remota
+      // 1. Persiste imediatamente a alteração localmente e na fila Outbox antes da tentativa remota
+      const listWithPendingUpdate = items.map((item) =>
+        item.id === pendingUpdated.id ? pendingUpdated : item
+      );
+      setItems(listWithPendingUpdate);
       autoSyncService.enqueueMutation(
         'UPDATE',
         pendingUpdated,
         currentUser?.id,
         pendingUpdated.id
       );
+      await Promise.all([
+        persistUserDiscardsLocally(currentUser?.id, listWithPendingUpdate),
+        autoSyncService.saveOutboxQueue(currentUser?.id),
+      ]);
 
       let remoteConfirmed = false;
       if (!isOffline) {
@@ -533,9 +633,11 @@ export default function App() {
         syncPending: !remoteConfirmed,
       };
 
-      setItems((prev) =>
-        prev.map((item) => (item.id === finalUpdated.id ? finalUpdated : item))
+      const finalList = items.map((item) =>
+        item.id === finalUpdated.id ? finalUpdated : item
       );
+      setItems(finalList);
+      await persistUserDiscardsLocally(currentUser?.id, finalList);
       setSelectedItemId(finalUpdated.id);
 
       setFeedback({
@@ -554,7 +656,7 @@ export default function App() {
       );
       setNotifications((prev) => [notif, ...prev]);
     },
-    [currentUser, isOffline]
+    [currentUser, isOffline, items, persistUserDiscardsLocally]
   );
 
   /**
@@ -564,9 +666,15 @@ export default function App() {
     async (id: string) => {
       const target = items.find((i) => i.id === id);
 
-      // 1. Oculta imediatamente da listagem e registra Tombstone + mutação DELETE persistente (A4-05)
-      setItems((prev) => prev.filter((i) => i.id !== id));
+      // 1. Oculta imediatamente da listagem e persiste Tombstone + mutação DELETE no AsyncStorage (A4-05)
+      const nextList = items.filter((i) => i.id !== id);
+      setItems(nextList);
       autoSyncService.enqueueMutation('DELETE', { id }, currentUser?.id, id);
+      await Promise.all([
+        persistUserDiscardsLocally(currentUser?.id, nextList),
+        autoSyncService.addTombstone(id, currentUser?.id),
+        autoSyncService.saveOutboxQueue(currentUser?.id),
+      ]);
 
       let remoteDeleted = false;
       if (!isOffline) {
@@ -604,7 +712,7 @@ export default function App() {
         variant: remoteDeleted ? 'success' : 'warning',
       });
     },
-    [currentUser?.id, isOffline, items]
+    [currentUser?.id, isOffline, items, persistUserDiscardsLocally]
   );
 
   /** Atualiza o perfil do cidadão sem armazenar senha em texto puro (A4-11) */
@@ -934,7 +1042,13 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <OfflineBanner isOffline={isOffline} />
+      <OfflineBanner
+        isOffline={isOffline}
+        isServerReachable={isServerReachable}
+        pendingCount={pendingOfflineCount}
+        isSyncing={isSyncing}
+        onRetrySync={() => flushOfflineQueueAndReconcile()}
+      />
       {currentUser ? (
         <ScreenTransition screenKey={screen}>{renderScreen}</ScreenTransition>
       ) : (

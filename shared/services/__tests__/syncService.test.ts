@@ -200,6 +200,61 @@ describe('syncService (Outbox Persistente, Sincronização Real, Tombstones e Co
       expect(reconciled[0].observation).toBe('Editado offline');
       expect(reconciled[0].syncPending).toBe(true);
     });
+
+    it('deve reconstruir descartes criados offline a partir da fila outbox mesmo que localItems esteja vazio (Zero Data Loss)', () => {
+      const offlineCreated: DiscardItem = {
+        id: 'disc-crash-recovery',
+        type: 'Eletrônico',
+        quantity: 2,
+        unit: 'unidade',
+        observation: 'Salvo na fila antes de fechar app',
+        date: '2026-08-26T09:00:00.000Z',
+        status: 'Pendente (Offline)',
+        offline: true,
+        syncPending: true,
+      };
+
+      syncService.enqueueMutation('CREATE', offlineCreated, 'user-1', 'disc-crash-recovery');
+
+      const reconciled = reconcileCitizenDiscards(
+        [],
+        [],
+        syncService.getOutboxQueue(),
+        syncService.getTombstoneSet()
+      );
+
+      expect(reconciled.length).toBe(1);
+      expect(reconciled[0].id).toBe('disc-crash-recovery');
+      expect(reconciled[0].offline).toBe(true);
+      expect(reconciled[0].syncPending).toBe(true);
+      expect(reconciled[0].status).toBe('Pendente (Offline)');
+    });
+
+    it('deve preservar flags offline quando itens remotos vierem do cache local pendente', () => {
+      const cachedOfflineItem: DiscardItem = {
+        id: 'disc-cached-offline',
+        type: 'Vidro',
+        quantity: 4,
+        unit: 'kg',
+        observation: 'Cache local retornado no fallback',
+        date: '2026-08-26T10:00:00.000Z',
+        status: 'Pendente (Offline)',
+        offline: true,
+        syncPending: true,
+      };
+
+      const reconciled = reconcileCitizenDiscards(
+        [],
+        [cachedOfflineItem],
+        [],
+        new Set()
+      );
+
+      expect(reconciled.length).toBe(1);
+      expect(reconciled[0].offline).toBe(true);
+      expect(reconciled[0].syncPending).toBe(true);
+      expect(reconciled[0].status).toBe('Pendente (Offline)');
+    });
   });
 
   describe('Normalização ISO 8601 e Coletor/Admin (A4-16)', () => {

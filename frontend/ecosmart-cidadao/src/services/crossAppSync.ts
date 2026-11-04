@@ -12,7 +12,7 @@ import {
  * URL da rede local (LAN) detectada no computador host pelo script sync-shared.js.
  * Serve como candidato automático para dispositivos físicos na mesma rede Wi-Fi.
  */
-export const DETECTED_HOST_LAN_URL = 'http://192.168.18.38:3333';
+export const DETECTED_HOST_LAN_URL = 'http://172.32.210.63:3333';
 
 /**
  * Extrai o endereço IPv4 ou hostname de uma URL/URI do bundler (Metro / Expo Go).
@@ -524,7 +524,14 @@ export class CrossAppSyncService {
         const serverDiscards = await res.json();
         if (Array.isArray(serverDiscards)) {
           return serverDiscards
-            .map(normalizeToCollectorDiscard)
+            .map((d) =>
+              normalizeToCollectorDiscard({
+                ...d,
+                offline: false,
+                syncPending: false,
+                offlineSyncPending: false,
+              })
+            )
             .filter((d) => !tombstones.has(d.id));
         }
       }
@@ -538,12 +545,12 @@ export class CrossAppSyncService {
       );
       if (Array.isArray(cloudDiscards) && cloudDiscards.length > 0) {
         return cloudDiscards
-          .map(normalizeToCollectorDiscard)
+          .map((d) => normalizeToCollectorDiscard(d))
           .filter((d) => !tombstones.has(d.id));
       }
     } catch (_err) {}
 
-    // 3. Mecanismo de contingência no armazenamento local específico do usuário
+    // 3. Mecanismo de contingência no armazenamento local específico do usuário (preservando flag offline)
     try {
       const userKey = userId
         ? `${STORAGE_KEYS.CIDADAO.DISCARDS}_${userId}`
@@ -553,7 +560,7 @@ export class CrossAppSyncService {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
           return parsed
-            .map(normalizeToCollectorDiscard)
+            .map((d) => normalizeToCollectorDiscard(d))
             .filter((d) => !tombstones.has(d.id));
         }
       }

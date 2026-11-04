@@ -524,7 +524,14 @@ export class CrossAppSyncService {
         const serverDiscards = await res.json();
         if (Array.isArray(serverDiscards)) {
           return serverDiscards
-            .map(normalizeToCollectorDiscard)
+            .map((d) =>
+              normalizeToCollectorDiscard({
+                ...d,
+                offline: false,
+                syncPending: false,
+                offlineSyncPending: false,
+              })
+            )
             .filter((d) => !tombstones.has(d.id));
         }
       }
@@ -538,12 +545,12 @@ export class CrossAppSyncService {
       );
       if (Array.isArray(cloudDiscards) && cloudDiscards.length > 0) {
         return cloudDiscards
-          .map(normalizeToCollectorDiscard)
+          .map((d) => normalizeToCollectorDiscard(d))
           .filter((d) => !tombstones.has(d.id));
       }
     } catch (_err) {}
 
-    // 3. Mecanismo de contingência no armazenamento local específico do usuário
+    // 3. Mecanismo de contingência no armazenamento local específico do usuário (preservando flag offline)
     try {
       const userKey = userId
         ? `${STORAGE_KEYS.CIDADAO.DISCARDS}_${userId}`
@@ -553,7 +560,7 @@ export class CrossAppSyncService {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
           return parsed
-            .map(normalizeToCollectorDiscard)
+            .map((d) => normalizeToCollectorDiscard(d))
             .filter((d) => !tombstones.has(d.id));
         }
       }

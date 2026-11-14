@@ -7,7 +7,7 @@
 ![Expo](https://img.shields.io/badge/Expo-SDK%2054-black)
 ![Node.js](https://img.shields.io/badge/Node.js-Backend%20REST-green)
 ![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue)
-![Tests](https://img.shields.io/badge/Tests-77%20suites%20%7C%20454%20passed-success)
+![Tests](https://img.shields.io/badge/Tests-77%20suites%20%7C%20472%20passed-success)
 ![Firebase](https://img.shields.io/badge/Firebase-Firestore%20%2B%20Auth-orange)
 ![License](https://img.shields.io/badge/license-academic-lightgrey)
 
@@ -62,7 +62,7 @@ Ecosmart_DMM---Mobile/
 │   ├── seed-firestore.js         # Migração ao vivo e carga de dados com isolamento estrito no Cloud Firestore
 │   ├── sync-server.js            # Servidor central REST de sincronização (Porta 3333)
 │   ├── ensure-server.js          # Auto-inicializador do servidor backend e verificação do Firebase
-│   ├── test-communication.js     # Diagnóstico automatizado E2E de integração da API e Firestore
+│   ├── test-communication.js     # Diagnóstico HTTP da API e verificação estrutural do módulo Firestore
 │   └── start-all.js              # Inicialização concorrente dos 3 apps e do backend
 │
 ├── executaveis/                  🚀 Automações em lote (.bat) para execução com duplo clique no Windows
@@ -165,13 +165,17 @@ A pasta [`executaveis/`](file:///C:/Users/gabri/Documents/faculdade/7%20semestre
 
 ## 🧪 Qualidade e Testes Automatizados
 
-O ecossistema conta com **77 suítes de testes** e **454 testes automatizados** (100% de sucesso):
+Na execução local de **14/11/2026**, foram aprovados **472 testes automatizados em 77 suítes**: Cidadão (160), Coletor (154) e Admin (158). A verificação TypeScript dos três aplicativos e do backend também passou. O diagnóstico HTTP executou criação, leitura, edição, baixa de coleta e exclusão de um descarte.
+
+Os testes cobrem autenticação e restrições por perfil, isolamento de dados, fila offline, sincronização, telas, cadastros, relatórios e utilitários. A aprovação de todos os testes não significa cobertura de 100% do código: a cobertura de linhas ficou em 65,31% (Cidadão), 63,50% (Coletor) e 64,95% (Admin).
+
+Consulte o [relatório dos testes e evidências](artigo-evidencias/README.md) para ver os cenários, os logs, as versões efetivamente instaladas e os limites da validação. A execução usou dependências locais diferentes de algumas versões declaradas nos manifestos; a integração com Firebase em produção e os dispositivos físicos não foram validados nesta rodada.
 
 ```bash
 # Executa todos os testes dos 3 aplicativos com propagação do shared
 npm run test:all
 
-# Executa diagnóstico prático de comunicação da API e Firebase
+# Executa diagnóstico HTTP da API e verifica a estrutura do módulo Firebase
 npm run test:communication
 
 # Executa verificação estática de tipos TypeScript em todo o monorepo

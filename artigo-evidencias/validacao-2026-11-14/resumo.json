@@ -1,0 +1,317 @@
+{
+  "date": "2026-11-14",
+  "timezone": "America/Cuiaba",
+  "sourceCommit": "8512d2c39e8abcc37bc63ea99ed0fc860317b148",
+  "sourceState": "Checkout com alteracoes locais preexistentes; execucao direta sem sync-shared.js. Consulte os hashes e o README.",
+  "runtime": {
+    "node": "v22.15.0",
+    "npm": "10.9.2",
+    "platform": "win32",
+    "architecture": "x64"
+  },
+  "totals": {
+    "suitesPassed": 77,
+    "testsPassed": 472,
+    "failed": 0
+  },
+  "apps": [
+    {
+      "app": "cidadao",
+      "cwd": "frontend/ecosmart-cidadao",
+      "command": "node node_modules/jest/bin/jest.js --watch=false --runInBand --coverage --coverageReporters=text --coverageReporters=json-summary",
+      "exitCode": 0,
+      "suites": {
+        "passed": 26,
+        "total": 26
+      },
+      "tests": {
+        "passed": 160,
+        "total": 160
+      },
+      "coverage": {
+        "lines": {
+          "total": 1825,
+          "covered": 1192,
+          "skipped": 0,
+          "pct": 65.31
+        },
+        "statements": {
+          "total": 1944,
+          "covered": 1250,
+          "skipped": 0,
+          "pct": 64.3
+        },
+        "functions": {
+          "total": 390,
+          "covered": 254,
+          "skipped": 0,
+          "pct": 65.12
+        },
+        "branches": {
+          "total": 2049,
+          "covered": 1066,
+          "skipped": 0,
+          "pct": 52.02
+        },
+        "branchesTrue": {
+          "total": 0,
+          "covered": 0,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "dependencies": {
+        "expo": {
+          "declared": "~58.0.0",
+          "installed": "57.0.26"
+        },
+        "react": {
+          "declared": "19.3.0",
+          "installed": "19.2.3"
+        },
+        "react-native": {
+          "declared": "0.88.1",
+          "installed": "0.86.3"
+        },
+        "jest": {
+          "declared": "~30.5.2",
+          "installed": "29.7.0"
+        },
+        "jest-expo": {
+          "declared": "~58.0.14",
+          "installed": "57.0.5"
+        },
+        "typescript": {
+          "declared": "~6.0.3",
+          "installed": "6.0.3"
+        },
+        "firebase": {
+          "declared": "^12.18.0",
+          "installed": "12.19.0"
+        },
+        "@testing-library/react-native": {
+          "declared": "^12.5.0",
+          "installed": "12.5.0"
+        }
+      },
+      "sourceHashes": {
+        "src/services/crossAppSync.ts": "d7ca3e45c70ab4713221caa7b03114e8b6a76498d9d32266c1660ebf1f571f70",
+        "src/services/firebaseConfig.ts": "343350a1a8872c29e8db243d9d1b4cdb3c5944c69b6b2a0b2c8e9d3295593c00",
+        "jest.config.js": "c086686f8f72d8f55a2f1235b537017d55eae99b6b30409c3239b143686d196f",
+        "jest.setup.js": "31905550da37efe7ca32dc63c5ab622a8198c035f3803db6867c6b071aa559e0",
+        "package.json": "5b94e19298c3243c10de6daa4f2fcfa44f83e6b02cc8458b1ed4216aba2c6248",
+        "package-lock.json": "8a6c2bb57b82232b6f84aa6eade5945ad27fef017a22e88277644f2edb03567d"
+      },
+      "output": "testes-cidadao.txt"
+    },
+    {
+      "app": "coletor",
+      "cwd": "frontend/ecosmart-coletor",
+      "command": "node node_modules/jest/bin/jest.js --watch=false --runInBand --coverage --coverageReporters=text --coverageReporters=json-summary",
+      "exitCode": 0,
+      "suites": {
+        "passed": 25,
+        "total": 25
+      },
+      "tests": {
+        "passed": 154,
+        "total": 154
+      },
+      "coverage": {
+        "lines": {
+          "total": 1688,
+          "covered": 1072,
+          "skipped": 0,
+          "pct": 63.5
+        },
+        "statements": {
+          "total": 1794,
+          "covered": 1119,
+          "skipped": 0,
+          "pct": 62.37
+        },
+        "functions": {
+          "total": 364,
+          "covered": 231,
+          "skipped": 0,
+          "pct": 63.46
+        },
+        "branches": {
+          "total": 1836,
+          "covered": 917,
+          "skipped": 0,
+          "pct": 49.94
+        },
+        "branchesTrue": {
+          "total": 0,
+          "covered": 0,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "dependencies": {
+        "expo": {
+          "declared": "~58.0.0",
+          "installed": "57.0.26"
+        },
+        "react": {
+          "declared": "19.3.0",
+          "installed": "19.2.3"
+        },
+        "react-native": {
+          "declared": "0.88.1",
+          "installed": "0.86.3"
+        },
+        "jest": {
+          "declared": "~30.5.2",
+          "installed": "29.7.0"
+        },
+        "jest-expo": {
+          "declared": "~58.0.14",
+          "installed": "57.0.5"
+        },
+        "typescript": {
+          "declared": "~6.0.3",
+          "installed": "6.0.3"
+        },
+        "firebase": {
+          "declared": "^12.18.0",
+          "installed": "12.19.0"
+        },
+        "@testing-library/react-native": {
+          "declared": "^12.9.0",
+          "installed": "12.9.0"
+        }
+      },
+      "sourceHashes": {
+        "src/services/crossAppSync.ts": "d7ca3e45c70ab4713221caa7b03114e8b6a76498d9d32266c1660ebf1f571f70",
+        "src/services/firebaseConfig.ts": "343350a1a8872c29e8db243d9d1b4cdb3c5944c69b6b2a0b2c8e9d3295593c00",
+        "jest.config.js": "c086686f8f72d8f55a2f1235b537017d55eae99b6b30409c3239b143686d196f",
+        "jest.setup.js": "31905550da37efe7ca32dc63c5ab622a8198c035f3803db6867c6b071aa559e0",
+        "package.json": "9c506fce6e8d81a2deff36a3a9b42f7653212fc2e449171732faa61f4b24bbf9",
+        "package-lock.json": "2b994331998febdedbfdf62bba42e6c05a560054545dac5806c8ab760bba9dfe"
+      },
+      "output": "testes-coletor.txt"
+    },
+    {
+      "app": "admin",
+      "cwd": "frontend/ecosmart-admin",
+      "command": "node node_modules/jest/bin/jest.js --watch=false --runInBand --coverage --coverageReporters=text --coverageReporters=json-summary",
+      "exitCode": 0,
+      "suites": {
+        "passed": 26,
+        "total": 26
+      },
+      "tests": {
+        "passed": 158,
+        "total": 158
+      },
+      "coverage": {
+        "lines": {
+          "total": 1792,
+          "covered": 1164,
+          "skipped": 0,
+          "pct": 64.95
+        },
+        "statements": {
+          "total": 1911,
+          "covered": 1223,
+          "skipped": 0,
+          "pct": 63.99
+        },
+        "functions": {
+          "total": 395,
+          "covered": 257,
+          "skipped": 0,
+          "pct": 65.06
+        },
+        "branches": {
+          "total": 1876,
+          "covered": 954,
+          "skipped": 0,
+          "pct": 50.85
+        },
+        "branchesTrue": {
+          "total": 0,
+          "covered": 0,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "dependencies": {
+        "expo": {
+          "declared": "~58.0.0",
+          "installed": "57.0.26"
+        },
+        "react": {
+          "declared": "19.3.0",
+          "installed": "19.2.3"
+        },
+        "react-native": {
+          "declared": "0.88.1",
+          "installed": "0.86.3"
+        },
+        "jest": {
+          "declared": "~30.5.2",
+          "installed": "29.7.0"
+        },
+        "jest-expo": {
+          "declared": "~58.0.14",
+          "installed": "57.0.5"
+        },
+        "typescript": {
+          "declared": "~6.0.3",
+          "installed": "6.0.3"
+        },
+        "firebase": {
+          "declared": "^12.18.0",
+          "installed": "12.19.0"
+        },
+        "@testing-library/react-native": {
+          "declared": "^12.9.0",
+          "installed": "12.9.0"
+        }
+      },
+      "sourceHashes": {
+        "src/services/crossAppSync.ts": "d7ca3e45c70ab4713221caa7b03114e8b6a76498d9d32266c1660ebf1f571f70",
+        "src/services/firebaseConfig.ts": "dcd5d9b99df6b345fe963282e02a3a856d1fbd05e78c9078604c61f49086569b",
+        "jest.config.js": "c086686f8f72d8f55a2f1235b537017d55eae99b6b30409c3239b143686d196f",
+        "jest.setup.js": "31905550da37efe7ca32dc63c5ab622a8198c035f3803db6867c6b071aa559e0",
+        "package.json": "6b3da1cde20e70b701c8a99c2ec59008f955d1b68e7a5249c23e0f64a9ac90b7",
+        "package-lock.json": "ca7d684e880382366461e556785e11f3666695d559234e401917eb6bb6e2c808"
+      },
+      "output": "testes-admin.txt"
+    }
+  ],
+  "typecheck": {
+    "command": "npm run typecheck:all",
+    "exitCode": 0,
+    "targets": [
+      "cidadao",
+      "coletor",
+      "admin",
+      "backend"
+    ],
+    "output": "typecheck.txt"
+  },
+  "communication": {
+    "command": "node scripts/test-communication.js",
+    "exitCode": 0,
+    "server": "scripts/sync-server.js; porta efemera local, iniciado e encerrado na mesma execucao",
+    "persistence": "ECOSMART_DB_FILE apontando para arquivo temporario; arquivo removido apos a execucao",
+    "httpStepsObserved": [
+      "health",
+      "create",
+      "update",
+      "read",
+      "collect",
+      "delete"
+    ],
+    "staticChecks": [
+      "storage namespaces",
+      "Firestore methods and onSnapshot names"
+    ],
+    "limitations": "O agregado do script nao inclui edicao e exclusao; sucesso dessas etapas conferido no log. Sem releitura apos DELETE. Sem teste do Firestore remoto.",
+    "output": "comunicacao.txt"
+  }
+}

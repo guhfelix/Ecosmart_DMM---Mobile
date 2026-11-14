@@ -1,0 +1,4 @@
+v22.15.0
+10.9.2
+7e791fd
+?? artigo-evidencias/

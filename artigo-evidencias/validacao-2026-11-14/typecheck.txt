@@ -1,0 +1,3 @@
+
+> ecosmart-mobile-monorepo@1.0.0 typecheck:all
+> cd frontend/ecosmart-cidadao && npx tsc --noEmit && cd ../ecosmart-coletor && npx tsc --noEmit && cd ../ecosmart-admin && npx tsc --noEmit && cd ../.. && node frontend/ecosmart-cidadao/node_modules/typescript/bin/tsc --project backend/tsconfig.json --noEmit

@@ -1,0 +1,81 @@
+PASS src/screens/__tests__/AuthScreen.test.tsx (15.354 s)
+PASS src/screens/__tests__/WasteTypesScreen.test.tsx
+PASS src/screens/__tests__/CollectionPointsScreen.test.tsx
+PASS src/screens/__tests__/RecordsScreen.test.tsx
+PASS src/screens/__tests__/EducationalTipsScreen.test.tsx
+PASS src/components/__tests__/NotificationModal.test.tsx
+PASS src/screens/__tests__/ProfileScreen.test.tsx
+PASS src/services/__tests__/crossAppSync.test.ts
+PASS src/services/__tests__/firebaseService.test.ts
+PASS src/services/__tests__/dataIsolation.test.ts
+PASS src/services/__tests__/authService.test.ts
+PASS src/services/__tests__/syncService.test.ts
+PASS src/utils/__tests__/validationUtils.test.ts
+PASS src/components/__tests__/OfflineBanner.test.tsx
+PASS src/services/__tests__/firebaseConfig.test.ts
+PASS src/screens/__tests__/HomeScreen.test.tsx
+PASS src/hooks/__tests__/useNetworkStatus.test.ts
+PASS src/services/__tests__/reportService.test.ts
+PASS src/utils/__tests__/geoUtils.test.ts
+PASS src/components/__tests__/AppCard.test.tsx (7.158 s)
+PASS src/services/__tests__/cepService.test.ts
+PASS src/services/__tests__/securityService.test.ts
+PASS src/services/__tests__/notificationService.test.ts
+PASS src/utils/__tests__/idUtils.test.ts
+PASS src/services/__tests__/storageKeys.test.ts
+PASS src/theme/__tests__/colors.test.ts
+-----------------------------|---------|----------|---------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+File                         | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
+-----------------------------|---------|----------|---------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+All files                    |   63.99 |    50.85 |   65.06 |   64.95 |
+ components                  |   66.66 |    62.88 |   72.72 |   65.38 |
+  AppCard.tsx                |     100 |      100 |     100 |     100 |
+  EmptyState.tsx             |   33.33 |        0 |       0 |   33.33 | 15-24
+  FeedbackMessage.tsx        |     100 |      100 |     100 |     100 |
+  LoadingScreen.tsx          |       0 |        0 |       0 |       0 | 12-24
+  NotificationModal.tsx      |   84.61 |    68.75 |     100 |   84.61 | 23,29
+  OfflineBanner.tsx          |     100 |    88.23 |     100 |     100 | 26,37,47,52
+  PrimaryButton.tsx          |     100 |       50 |     100 |     100 | 39-52
+  ScreenHeader.tsx           |     100 |       50 |     100 |     100 | 15-30
+  ScreenTransition.tsx       |       0 |        0 |       0 |       0 | 4-44
+  StatusBadge.tsx            |       0 |        0 |       0 |       0 | 14-17
+ data                        |     100 |      100 |     100 |     100 |
+  initialCaceresData.ts      |     100 |      100 |     100 |     100 |
+  mockData.ts                |     100 |      100 |     100 |     100 |
+ hooks                       |   45.45 |    17.39 |   38.46 |   48.27 |
+  useNetworkStatus.ts        |   45.45 |    17.39 |   38.46 |   48.27 | 26-41,56,65-76,81
+ models                      |       0 |        0 |       0 |       0 |
+  index.ts                   |       0 |        0 |       0 |       0 |
+ screens                     |   72.48 |    65.37 |   71.71 |   74.35 |
+  AuthScreen.tsx             |   61.81 |    68.31 |      50 |   68.04 | 79-85,131-132,136-140,163-170,175-195,243,323,410
+  CollectionPointsScreen.tsx |   85.41 |    61.11 |   85.71 |   84.44 | 67-68,81,90,97-99,193
+  EducationalTipsScreen.tsx  |   83.33 |    62.96 |   85.71 |   82.05 | 57-58,69,78,85-87,164
+  HomeScreen.tsx             |   63.63 |    57.89 |   55.55 |   63.63 | 58-67,98,129
+  ProfileScreen.tsx          |      56 |    56.52 |      50 |   58.33 | 65-85,92-94,274
+  RecordsScreen.tsx          |   84.21 |    68.96 |   72.72 |   84.37 | 112,157-217
+  WasteTypesScreen.tsx       |   87.17 |       80 |   92.85 |   86.11 | 53-54,64,73,148
+ services                    |   60.72 |    46.84 |   61.06 |   61.54 |
+  authService.ts             |   62.17 |     50.4 |   70.83 |   62.66 | 132-165,261,285,381,396,434,446,491-610
+  cepService.ts              |   94.44 |     62.5 |      80 |   96.96 | 120
+  crossAppSync.ts            |   58.35 |    37.58 |   52.38 |   59.11 | 21-37,48-93,113,118,129-147,192,230,272,281,304,325-327,355-411,450-455,498-499,528-569,607-622,634-639,654,703,710-714,775-780,787-791,942-948
+  firebaseConfig.ts          |   52.38 |    60.46 |     100 |   51.66 | 68-76,84-93,108,127,133-145,157,174-185
+  firebaseService.ts         |   51.86 |    39.66 |   54.76 |      53 | 36-45,157-165,218-256,321-366,381-398,440-441,468-469,484-502,517-530,545-558,573-586,623-624,642-646,673,681-682,702-706,721-765,776-782,796,804-805,816-822,836,844-845,856-862,876,884-885,900-930
+  notificationService.ts     |     100 |    66.66 |     100 |     100 | 28
+  reportService.ts           |     100 |     87.5 |     100 |     100 | 34
+  securityService.ts         |   92.85 |    91.66 |     100 |   95.65 | 62
+  storageKeys.ts             |      75 |       50 |   66.66 |      75 | 64
+  syncService.ts             |   64.35 |    51.54 |   53.84 |   65.97 | 36,39,44-45,49,64-68,171-179,304-313,326-328,350,406-408,420-421,425-430,434,474-477,518-526,532,536-544,572-577,615,635-655,662,705-706,737,750,767-813,824,837
+ theme                       |     100 |      100 |     100 |     100 |
+  colors.ts                  |     100 |      100 |     100 |     100 |
+  layout.ts                  |     100 |      100 |     100 |     100 |
+ utils                       |   79.77 |    61.45 |   94.11 |   79.77 |
+  geoUtils.ts                |     100 |    85.71 |     100 |     100 | 64-68
+  idUtils.ts                 |     100 |     87.5 |     100 |     100 | 8
+  validationUtils.ts         |   68.96 |    54.05 |    87.5 |   68.96 | 84-90,111,135-158,170,177
+-----------------------------|---------|----------|---------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Test Suites: 26 passed, 26 total
+Tests:       158 passed, 158 total
+Snapshots:   0 total
+Time:        66.71 s, estimated 278 s
+Ran all test suites.

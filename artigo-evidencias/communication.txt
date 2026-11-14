@@ -1,0 +1,46 @@
+
+> ecosmart-mobile-monorepo@1.0.0 test:communication
+> node scripts/test-communication.js
+
+====================================================
+   🧪 EcoSmart Mobile - Teste de Comunicação e Sync
+====================================================
+
+[Etapa 1] Verificando Servidor Centralizado Backend (Node.js REST)
+  ✅ Servidor Backend ativo e respondendo em http://localhost:3333 (91ms)
+
+[Etapa 2] Testando Criação de Descarte (Envio HTTP POST pelo Cidadão)
+  ✅ Descarte criado com sucesso no servidor! ID: test-sync-1792441522363
+    📦 Tipo: Plástico e PET | Quantidade: 4 garrafas PET (2L) | Local: Cáceres - MT
+
+[Etapa 3] Testando Leitura e Recepção de Dados (Consulta pelo Coletor/Admin)
+  ✅ Descarte localizado na lista global de descartes (1 registros no total).
+    📍 Status verificado: "pendente" | Criado por: "Maria Cidadã Pantaneira (Teste Automatizado)"
+
+[Etapa 4] Testando Baixa de Coleta (Atualização de Status pelo Coletor)
+  ✅ Descarte test-sync-1792441522363 marcado como COLETADO com sucesso.
+    🚛 Coletor: "user-coletor-lucas" | Data de Coleta: "19/10/2026"
+
+[Etapa 5] Testando Exclusão e Limpeza do Registro de Teste
+  ✅ Registro de teste test-sync-1792441522363 removido do servidor sem deixar resíduos.
+
+[Etapa 6] Validando Isolamento de Persistência Local por Aplicativo
+  ✅ Namespaces de armazenamento local isolados com sucesso:
+    📱 EcoSmart Cidadão: @ecosmart_cidadao_*
+    🚛 EcoSmart Coletor: @ecosmart_coletor_*
+    📊 EcoSmart Admin:   @ecosmart_admin_*
+
+[Etapa 7] Verificando Módulo do Firebase (Cloud Firestore & Listeners onSnapshot)
+  ✅ Serviço Firebase Firestore configurado com operações CRUD e Listeners em Tempo Real (onSnapshot).
+
+====================================================
+             📊 RELATÓRIO DE DIAGNÓSTICO
+====================================================
+  1. Servidor Backend REST (Porta 3333):        OK (Operacional)
+  2. Comunicação de Criação (POST /api/discards): OK (Operacional)
+  3. Comunicação de Leitura (GET /api/discards):   OK (Operacional)
+  4. Atualização de Baixa de Coleta:              OK (Operacional)
+  5. Persistência Local Isolada (AsyncStorage):   OK (Isolado)
+  6. Cloud Firestore Listeners (onSnapshot):      OK (Configurado)
+----------------------------------------------------
+✨ RESULTADO: Todos os canais de comunicação e criação estão 100% OPERACIONAIS!

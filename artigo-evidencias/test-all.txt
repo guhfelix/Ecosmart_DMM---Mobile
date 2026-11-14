@@ -1,0 +1,123 @@
+
+> ecosmart-mobile-monorepo@1.0.0 test:all
+> node scripts/sync-shared.js && cd frontend/ecosmart-cidadao && npm test && cd ../ecosmart-coletor && npm test && cd ../ecosmart-admin && npm test
+
+🔄 Sincronizando módulos de shared/ para os aplicativos front-end com blindagem de isolamento...
+✅ Sincronizado 🛡️ [Comum: Banco Padrão Apenas]: frontend\ecosmart-cidadao\src
+✅ Sincronizado 🛡️ [Comum: Banco Padrão Apenas]: frontend\ecosmart-coletor\src
+✅ Sincronizado 👑 [Admin: Banco Dedicado]: frontend\ecosmart-admin\src
+✨ Sincronização concluída com 100% de consistência e isolamento!
+
+> ecosmart-cidadao@1.0.0 test
+> jest --watch=false
+
+npm.cmd : PASS src/services/__tests__/dataIsolation.test.ts (15.46 s)
+No linha:1 caractere:1
++ npm.cmd run test:all 2>&1 | Tee-Object artigo-evidencias\test-all.txt
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (PASS src/servic...st.ts (15.46 s):String)
+    [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+PASS src/services/__tests__/authService.test.ts (14.802 s)
+PASS src/services/__tests__/securityService.test.ts (14.059 s)
+PASS src/services/__tests__/firebaseService.test.ts (14.959 s)
+PASS src/services/__tests__/syncService.test.ts (14.02 s)
+PASS src/services/__tests__/cepService.test.ts
+PASS src/utils/__tests__/validationUtils.test.ts
+PASS src/services/__tests__/crossAppSync.test.ts
+PASS src/utils/__tests__/geoUtils.test.ts
+PASS src/services/__tests__/reportService.test.ts
+PASS src/services/__tests__/notificationService.test.ts
+PASS src/services/__tests__/storageKeys.test.ts
+PASS src/services/__tests__/firebaseConfig.test.ts
+PASS src/utils/__tests__/idUtils.test.ts
+PASS src/screens/__tests__/ProfileScreen.test.tsx (43.527 s)
+PASS src/screens/__tests__/RegisterDiscardScreen.test.tsx (59.556 s)
+PASS src/screens/__tests__/AuthScreen.test.tsx (59.182 s)
+PASS src/hooks/__tests__/useNetworkStatus.test.ts
+PASS src/screens/__tests__/TipsScreen.test.tsx (38.316 s)
+PASS src/screens/__tests__/CollectionPointsScreen.test.tsx (42.51 s)
+PASS src/components/__tests__/NotificationModal.test.tsx (42.504 s)
+PASS src/screens/__tests__/HistoryScreen.test.tsx (42.863 s)
+PASS src/screens/__tests__/HomeScreen.test.tsx
+PASS src/components/__tests__/OfflineBanner.test.tsx
+PASS src/theme/__tests__/colors.test.ts
+PASS src/components/__tests__/AppCard.test.tsx
+
+Test Suites: 26 passed, 26 total
+Tests:       143 passed, 143 total
+Snapshots:   0 total
+Time:        80.247 s
+Ran all test suites.
+
+> ecosmart-coletor@1.0.0 test
+> jest --watch=false
+
+PASS src/services/__tests__/dataIsolation.test.ts (9.971 s)
+PASS src/utils/__tests__/validationUtils.test.ts
+PASS src/services/__tests__/securityService.test.ts (8.562 s)
+PASS src/services/__tests__/firebaseService.test.ts (9.405 s)
+PASS src/services/__tests__/syncService.test.ts (8.525 s)
+PASS src/services/__tests__/authService.test.ts (9.484 s)
+PASS src/services/__tests__/cepService.test.ts
+PASS src/services/__tests__/crossAppSync.test.ts
+PASS src/utils/__tests__/geoUtils.test.ts
+PASS src/services/__tests__/reportService.test.ts
+PASS src/services/__tests__/notificationService.test.ts
+PASS src/services/__tests__/storageKeys.test.ts
+PASS src/services/__tests__/firebaseConfig.test.ts
+PASS src/utils/__tests__/idUtils.test.ts
+PASS src/hooks/__tests__/useNetworkStatus.test.ts
+PASS src/components/__tests__/OfflineBanner.test.tsx (17.907 s)
+PASS src/screens/__tests__/DiscardDetailsScreen.test.tsx (25.155 s)
+PASS src/screens/__tests__/ProfileScreen.test.tsx (24.529 s)
+PASS src/theme/__tests__/colors.test.ts
+PASS src/screens/__tests__/AuthScreen.test.tsx (37.508 s)
+PASS src/screens/__tests__/HomeScreen.test.tsx
+PASS src/components/__tests__/AppCard.test.tsx
+PASS src/components/__tests__/NotificationModal.test.tsx (25.879 s)
+PASS src/screens/__tests__/CollectedDiscardsScreen.test.tsx (26.771 s)
+PASS src/screens/__tests__/AvailableDiscardsScreen.test.tsx (38.658 s)
+
+Test Suites: 25 passed, 25 total
+Tests:       139 passed, 139 total
+Snapshots:   0 total
+Time:        48.542 s
+Ran all test suites.
+
+> ecosmart-admin@1.0.0 test
+> jest --watch=false
+
+PASS src/services/__tests__/dataIsolation.test.ts (10.444 s)
+PASS src/services/__tests__/syncService.test.ts (8.728 s)
+PASS src/services/__tests__/securityService.test.ts (8.731 s)
+PASS src/services/__tests__/authService.test.ts (9.607 s)
+PASS src/services/__tests__/firebaseService.test.ts (9.631 s)
+PASS src/services/__tests__/cepService.test.ts
+PASS src/utils/__tests__/validationUtils.test.ts
+PASS src/utils/__tests__/geoUtils.test.ts
+PASS src/services/__tests__/crossAppSync.test.ts
+PASS src/services/__tests__/reportService.test.ts
+PASS src/screens/__tests__/ProfileScreen.test.tsx (31.774 s)
+PASS src/services/__tests__/notificationService.test.ts
+PASS src/components/__tests__/NotificationModal.test.tsx (33.751 s)
+PASS src/screens/__tests__/AuthScreen.test.tsx (47.125 s)
+PASS src/screens/__tests__/EducationalTipsScreen.test.tsx (35.899 s)
+PASS src/screens/__tests__/RecordsScreen.test.tsx (35.959 s)
+PASS src/utils/__tests__/idUtils.test.ts
+PASS src/services/__tests__/storageKeys.test.ts
+PASS src/services/__tests__/firebaseConfig.test.ts
+PASS src/screens/__tests__/CollectionPointsScreen.test.tsx (37.338 s)
+PASS src/screens/__tests__/WasteTypesScreen.test.tsx (48.183 s)
+PASS src/hooks/__tests__/useNetworkStatus.test.ts
+PASS src/theme/__tests__/colors.test.ts
+PASS src/components/__tests__/OfflineBanner.test.tsx
+PASS src/components/__tests__/AppCard.test.tsx
+PASS src/screens/__tests__/HomeScreen.test.tsx
+
+Test Suites: 26 passed, 26 total
+Tests:       143 passed, 143 total
+Snapshots:   0 total
+Time:        60.886 s
+Ran all test suites.

@@ -1,0 +1,270 @@
+
+> ecosmart-mobile-monorepo@1.0.0 test:coverage
+> node scripts/sync-shared.js && cd frontend/ecosmart-cidadao && npm run test:coverage && cd ../ecosmart-coletor && npm run test:coverage && cd ../ecosmart-admin && npm run test:coverage
+
+🔄 Sincronizando módulos de shared/ para os aplicativos front-end com blindagem de isolamento...
+✅ Sincronizado 🛡️ [Comum: Banco Padrão Apenas]: frontend\ecosmart-cidadao\src
+✅ Sincronizado 🛡️ [Comum: Banco Padrão Apenas]: frontend\ecosmart-coletor\src
+✅ Sincronizado 👑 [Admin: Banco Dedicado]: frontend\ecosmart-admin\src
+✨ Sincronização concluída com 100% de consistência e isolamento!
+
+> ecosmart-cidadao@1.0.0 test:coverage
+> jest --watch=false --coverage
+
+npm.cmd : PASS src/components/__tests__/NotificationModal.test.tsx (7.73 s)
+No linha:1 caractere:1
++ npm.cmd run test:coverage 2>&1 | Tee-Object artigo-evidencias\coverag ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (PASS src/compon...st.tsx (7.73 s):String)
+    [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+PASS src/screens/__tests__/TipsScreen.test.tsx (7.89 s)
+PASS src/screens/__tests__/ProfileScreen.test.tsx (8.222 s)
+PASS src/screens/__tests__/HistoryScreen.test.tsx (7.914 s)
+PASS src/screens/__tests__/CollectionPointsScreen.test.tsx (8.036 s)
+PASS src/services/__tests__/firebaseService.test.ts
+PASS src/services/__tests__/securityService.test.ts
+PASS src/screens/__tests__/RegisterDiscardScreen.test.tsx (8.983 s)
+PASS src/services/__tests__/authService.test.ts
+PASS src/services/__tests__/syncService.test.ts
+PASS src/services/__tests__/dataIsolation.test.ts
+PASS src/services/__tests__/firebaseConfig.test.ts
+PASS src/components/__tests__/OfflineBanner.test.tsx
+PASS src/services/__tests__/notificationService.test.ts
+PASS src/hooks/__tests__/useNetworkStatus.test.ts
+PASS src/screens/__tests__/HomeScreen.test.tsx
+PASS src/services/__tests__/cepService.test.ts
+PASS src/services/__tests__/crossAppSync.test.ts
+PASS src/services/__tests__/storageKeys.test.ts
+PASS src/components/__tests__/AppCard.test.tsx
+PASS src/services/__tests__/reportService.test.ts
+PASS src/utils/__tests__/geoUtils.test.ts
+PASS src/utils/__tests__/validationUtils.test.ts
+PASS src/screens/__tests__/AuthScreen.test.tsx (10.64 s)
+PASS src/utils/__tests__/idUtils.test.ts
+PASS src/theme/__tests__/colors.test.ts
+-----------------------------|---------|----------|---------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+File                         | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
+-----------------------------|---------|----------|---------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+All files                    |   69.32 |    51.58 |   66.98 |   70.38 |
+ components                  |   72.22 |     59.7 |   86.36 |   71.42 |
+  AppCard.tsx                |     100 |      100 |     100 |     100 |
+  EmptyState.tsx             |     100 |    66.66 |     100 |     100 | 19-24
+  FeedbackMessage.tsx        |     100 |      100 |     100 |     100 |
+  LoadingScreen.tsx          |       0 |        0 |       0 |       0 | 12-24
+  NotificationModal.tsx      |   84.61 |    68.75 |     100 |   84.61 | 23,29
+  OfflineBanner.tsx          |     100 |       75 |     100 |     100 | 18
+  PrimaryButton.tsx          |     100 |       50 |     100 |     100 | 39-52
+  ScreenHeader.tsx           |     100 |       50 |     100 |     100 | 15-30
+  ScreenTransition.tsx       |       0 |        0 |       0 |       0 | 4-44
+  StatusBadge.tsx            |     100 |        0 |     100 |     100 | 13
+ data                        |     100 |      100 |     100 |     100 |
+  initialCaceresData.ts      |     100 |      100 |     100 |     100 |
+  mockData.ts                |     100 |      100 |     100 |     100 |
+ hooks                       |   81.81 |       40 |   66.66 |   81.81 |
+  useNetworkStatus.ts        |   81.81 |       40 |   66.66 |   81.81 | 25,33
+ models                      |       0 |        0 |       0 |       0 |
+  index.ts                   |       0 |        0 |       0 |       0 |
+ screens                     |   74.01 |       61 |   67.04 |   77.07 |
+  AuthScreen.tsx             |      64 |    67.81 |   55.55 |   68.88 | 70-71,79,119-120,133-134,143-150,155-175,223,287
+  CollectionPointsScreen.tsx |   93.75 |    73.68 |   88.88 |   93.33 | 66
+  DiscardDetailsScreen.tsx   |       0 |        0 |       0 |       0 | 18-106
+  HistoryScreen.tsx          |   93.33 |    81.81 |   85.71 |   92.59 | 73,137
+  HomeScreen.tsx             |   54.54 |    36.66 |   42.85 |   57.14 | 63-72,104-132,168
+  ProfileScreen.tsx          |   78.94 |    55.76 |      75 |   80.39 | 65-68,76-80,85-87,265
+  RegisterDiscardScreen.tsx  |   82.14 |    62.24 |   73.33 |   87.01 | 104-107,118-122,146-147,238-239
+  TipsScreen.tsx             |     100 |       90 |     100 |     100 | 68
+ services                    |   64.51 |    44.26 |   62.03 |   64.91 |
+  authService.ts             |   75.35 |       60 |   71.42 |   75.73 | 96-128,144-146,225,311,326,361,373,410-419,454,464,521
+  cepService.ts              |   97.22 |    65.62 |      80 |     100 | 79,112-116,140-172
+  crossAppSync.ts            |   64.53 |    39.47 |   39.47 |   64.17 | 37,46-47,63-83,89-90,111-112,140-159,189-199,211-216,229,351-357
+  firebaseConfig.ts          |   58.33 |    51.42 |     100 |   57.77 | 55-60,73-74,96-97,109-110,129-140
+  firebaseService.ts         |   49.58 |    38.72 |   53.01 |   50.74 | 37-46,129,138-139,190-222,273-312,327-344,386-387,414-415,430-448,463-476,491-504,519-532,568-569,587-591,617,624-626,645-650,665-709,720-726,740,748-749,760-766,780,788-789,800-806,820,828-829,844-874
+  notificationService.ts     |     100 |    66.66 |     100 |     100 | 28
+  reportService.ts           |     100 |     87.5 |     100 |     100 | 34
+  securityService.ts         |   92.85 |    91.66 |     100 |   95.65 | 62
+  storageKeys.ts             |     100 |      100 |     100 |     100 |
+  syncService.ts             |   85.41 |    33.33 |   85.71 |   84.44 | 50-87,212
+ theme                       |     100 |      100 |     100 |     100 |
+  colors.ts                  |     100 |      100 |     100 |     100 |
+  layout.ts                  |     100 |      100 |     100 |     100 |
+ utils                       |     100 |    92.68 |     100 |     100 |
+  geoUtils.ts                |     100 |    85.71 |     100 |     100 | 64-68
+  idUtils.ts                 |     100 |     87.5 |     100 |     100 | 8
+  validationUtils.ts         |     100 |      100 |     100 |     100 |
+-----------------------------|---------|----------|---------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Test Suites: 26 passed, 26 total
+Tests:       143 passed, 143 total
+Snapshots:   0 total
+Time:        15.008 s, estimated 60 s
+Ran all test suites.
+
+> ecosmart-coletor@1.0.0 test:coverage
+> jest --watch=false --coverage
+
+PASS src/components/__tests__/OfflineBanner.test.tsx (5.78 s)
+PASS src/components/__tests__/NotificationModal.test.tsx (5.967 s)
+PASS src/screens/__tests__/CollectedDiscardsScreen.test.tsx (6.152 s)
+PASS src/screens/__tests__/DiscardDetailsScreen.test.tsx (6.229 s)
+PASS src/screens/__tests__/AvailableDiscardsScreen.test.tsx (6.546 s)
+PASS src/screens/__tests__/ProfileScreen.test.tsx (6.597 s)
+PASS src/services/__tests__/authService.test.ts
+PASS src/services/__tests__/securityService.test.ts
+PASS src/services/__tests__/firebaseService.test.ts
+PASS src/services/__tests__/syncService.test.ts
+PASS src/hooks/__tests__/useNetworkStatus.test.ts
+PASS src/services/__tests__/dataIsolation.test.ts
+PASS src/screens/__tests__/HomeScreen.test.tsx
+PASS src/services/__tests__/crossAppSync.test.ts
+PASS src/components/__tests__/AppCard.test.tsx
+PASS src/utils/__tests__/idUtils.test.ts
+PASS src/services/__tests__/notificationService.test.ts
+PASS src/services/__tests__/storageKeys.test.ts
+PASS src/services/__tests__/cepService.test.ts
+PASS src/utils/__tests__/validationUtils.test.ts
+PASS src/services/__tests__/reportService.test.ts
+PASS src/utils/__tests__/geoUtils.test.ts
+PASS src/theme/__tests__/colors.test.ts
+PASS src/services/__tests__/firebaseConfig.test.ts
+PASS src/screens/__tests__/AuthScreen.test.tsx (8.648 s)
+------------------------------|---------|----------|---------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+File                          | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
+------------------------------|---------|----------|---------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+All files                     |   67.19 |    50.22 |   65.65 |   68.22 |
+ components                   |   64.81 |    50.74 |   72.72 |   63.26 |
+  AppCard.tsx                 |     100 |      100 |     100 |     100 |
+  EmptyState.tsx              |   33.33 |        0 |       0 |   33.33 | 15-24
+  FeedbackMessage.tsx         |     100 |      100 |     100 |     100 |
+  LoadingScreen.tsx           |       0 |        0 |       0 |       0 | 12-24
+  NotificationModal.tsx       |   84.61 |    68.75 |     100 |   84.61 | 23,29
+  OfflineBanner.tsx           |     100 |       75 |     100 |     100 | 18
+  PrimaryButton.tsx           |     100 |       50 |     100 |     100 | 39-52
+  ScreenHeader.tsx            |     100 |       50 |     100 |     100 | 15-30
+  ScreenTransition.tsx        |       0 |        0 |       0 |       0 | 4-44
+  StatusBadge.tsx             |       0 |        0 |       0 |       0 | 14-17
+ data                         |     100 |      100 |     100 |     100 |
+  initialCaceresData.ts       |     100 |      100 |     100 |     100 |
+  mockData.ts                 |     100 |      100 |     100 |     100 |
+ hooks                        |   81.81 |       40 |   66.66 |   81.81 |
+  useNetworkStatus.ts         |   81.81 |       40 |   66.66 |   81.81 | 25,33
+ models                       |       0 |        0 |       0 |       0 |
+  index.ts                    |       0 |        0 |       0 |       0 |
+ screens                      |   67.85 |    62.13 |   66.17 |   71.49 |
+  AuthScreen.tsx              |      64 |    67.81 |   55.55 |   68.88 | 70-71,79,119-120,133-134,143-150,155-175,223,287
+  AvailableDiscardsScreen.tsx |   79.48 |    63.63 |   73.91 |   83.33 | 62,72,89-90,116,200
+  CollectedDiscardsScreen.tsx |   92.85 |       75 |    87.5 |    92.3 | 58
+  DiscardDetailsScreen.tsx    |     100 |       56 |     100 |     100 | 40-114
+  HomeScreen.tsx              |   66.66 |    57.89 |   55.55 |   66.66 | 59-68,100,123
+  ProfileScreen.tsx           |      54 |       50 |   42.85 |   57.44 | 53-73,80-82,254
+ services                     |   64.27 |    44.13 |   62.03 |   64.65 |
+  authService.ts              |   74.64 |       60 |   71.42 |      75 | 92,96-128,144-146,225,311,326,361,373,410-419,454,464,521
+  cepService.ts               |   94.44 |     62.5 |      80 |   96.96 | 120
+  crossAppSync.ts             |   64.53 |    39.47 |   39.47 |   64.17 | 37,46-47,63-83,89-90,111-112,140-159,189-199,211-216,229,351-357
+  firebaseConfig.ts           |   58.33 |    51.42 |     100 |   57.77 | 55-60,73-74,96-97,109-110,129-140
+  firebaseService.ts          |   49.58 |    38.72 |   53.01 |   50.74 | 37-46,129,138-139,190-222,273-312,327-344,386-387,414-415,430-448,463-476,491-504,519-532,568-569,587-591,617,624-626,645-650,665-709,720-726,740,748-749,760-766,780,788-789,800-806,820,828-829,844-874
+  notificationService.ts      |     100 |    66.66 |     100 |     100 | 28
+  reportService.ts            |     100 |     87.5 |     100 |     100 | 34
+  securityService.ts          |   92.85 |    91.66 |     100 |   95.65 | 62
+  storageKeys.ts              |     100 |      100 |     100 |     100 |
+  syncService.ts              |   85.41 |    33.33 |   85.71 |   84.44 | 50-87,212
+ theme                        |     100 |      100 |     100 |     100 |
+  colors.ts                   |     100 |      100 |     100 |     100 |
+  layout.ts                   |     100 |      100 |     100 |     100 |
+ utils                        |     100 |    92.68 |     100 |     100 |
+  geoUtils.ts                 |     100 |    85.71 |     100 |     100 | 64-68
+  idUtils.ts                  |     100 |     87.5 |     100 |     100 | 8
+  validationUtils.ts          |     100 |      100 |     100 |     100 |
+------------------------------|---------|----------|---------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Test Suites: 25 passed, 25 total
+Tests:       139 passed, 139 total
+Snapshots:   0 total
+Time:        11.641 s, estimated 39 s
+Ran all test suites.
+
+> ecosmart-admin@1.0.0 test:coverage
+> jest --watch=false --coverage
+
+PASS src/components/__tests__/NotificationModal.test.tsx (8.254 s)
+PASS src/screens/__tests__/EducationalTipsScreen.test.tsx (8.642 s)
+PASS src/screens/__tests__/ProfileScreen.test.tsx (8.733 s)
+PASS src/screens/__tests__/CollectionPointsScreen.test.tsx (8.775 s)
+PASS src/screens/__tests__/RecordsScreen.test.tsx (8.882 s)
+PASS src/screens/__tests__/WasteTypesScreen.test.tsx (8.945 s)
+PASS src/services/__tests__/securityService.test.ts
+PASS src/services/__tests__/firebaseService.test.ts
+PASS src/services/__tests__/authService.test.ts
+PASS src/components/__tests__/OfflineBanner.test.tsx
+PASS src/services/__tests__/syncService.test.ts
+PASS src/services/__tests__/storageKeys.test.ts
+PASS src/services/__tests__/dataIsolation.test.ts
+PASS src/hooks/__tests__/useNetworkStatus.test.ts
+PASS src/services/__tests__/cepService.test.ts
+PASS src/components/__tests__/AppCard.test.tsx
+PASS src/services/__tests__/crossAppSync.test.ts
+PASS src/services/__tests__/notificationService.test.ts
+PASS src/screens/__tests__/HomeScreen.test.tsx
+PASS src/theme/__tests__/colors.test.ts
+PASS src/utils/__tests__/idUtils.test.ts
+PASS src/services/__tests__/firebaseConfig.test.ts
+PASS src/services/__tests__/reportService.test.ts
+PASS src/utils/__tests__/validationUtils.test.ts
+PASS src/utils/__tests__/geoUtils.test.ts
+PASS src/screens/__tests__/AuthScreen.test.tsx (11.399 s)
+-----------------------------|---------|----------|---------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+File                         | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
+-----------------------------|---------|----------|---------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+All files                    |   69.13 |    51.78 |   67.37 |   69.95 |
+ components                  |   64.81 |    50.74 |   72.72 |   63.26 |
+  AppCard.tsx                |     100 |      100 |     100 |     100 |
+  EmptyState.tsx             |   33.33 |        0 |       0 |   33.33 | 15-24
+  FeedbackMessage.tsx        |     100 |      100 |     100 |     100 |
+  LoadingScreen.tsx          |       0 |        0 |       0 |       0 | 12-24
+  NotificationModal.tsx      |   84.61 |    68.75 |     100 |   84.61 | 23,29
+  OfflineBanner.tsx          |     100 |       75 |     100 |     100 | 18
+  PrimaryButton.tsx          |     100 |       50 |     100 |     100 | 39-52
+  ScreenHeader.tsx           |     100 |       50 |     100 |     100 | 15-30
+  ScreenTransition.tsx       |       0 |        0 |       0 |       0 | 4-44
+  StatusBadge.tsx            |       0 |        0 |       0 |       0 | 14-17
+ data                        |     100 |      100 |     100 |     100 |
+  initialCaceresData.ts      |     100 |      100 |     100 |     100 |
+  mockData.ts                |     100 |      100 |     100 |     100 |
+ hooks                       |   81.81 |       40 |   66.66 |   81.81 |
+  useNetworkStatus.ts        |   81.81 |       40 |   66.66 |   81.81 | 25,33
+ models                      |       0 |        0 |       0 |       0 |
+  index.ts                   |       0 |        0 |       0 |       0 |
+ screens                     |   73.07 |    65.72 |   71.71 |      75 |
+  AuthScreen.tsx             |   63.63 |     69.3 |      50 |    70.1 | 76-77,85,131-132,136-140,163-170,175-195,243,323,410
+  CollectionPointsScreen.tsx |   85.41 |    61.11 |   85.71 |   84.44 | 67-68,81,90,97-99,193
+  EducationalTipsScreen.tsx  |   83.33 |    62.96 |   85.71 |   82.05 | 57-58,69,78,85-87,164
+  HomeScreen.tsx             |   63.63 |    57.89 |   55.55 |   63.63 | 58-67,98,129
+  ProfileScreen.tsx          |      56 |    56.52 |      50 |   58.33 | 65-85,92-94,274
+  RecordsScreen.tsx          |   84.21 |    68.96 |   72.72 |   84.37 | 112,157-217
+  WasteTypesScreen.tsx       |   87.17 |       80 |   92.85 |   86.11 | 53-54,64,73,148
+ services                    |   64.99 |    44.53 |   62.03 |   65.42 |
+  authService.ts             |   77.46 |     62.1 |   71.42 |   77.94 | 96-128,225,311,326,361,373,410-419,454,464,521
+  cepService.ts              |   94.44 |     62.5 |      80 |   96.96 | 120
+  crossAppSync.ts            |   64.53 |    39.47 |   39.47 |   64.17 | 37,46-47,63-83,89-90,111-112,140-159,189-199,211-216,229,351-357
+  firebaseConfig.ts          |   58.33 |    51.42 |     100 |   57.77 | 56-61,74-75,97-98,110-111,130-141
+  firebaseService.ts         |   50.13 |    39.05 |   53.01 |   51.34 | 37-46,129,138-139,190-222,273-312,327-344,386-387,414-415,430-448,463-476,491-504,519-532,568-569,587-591,617,625-626,646-650,665-709,720-726,740,748-749,760-766,780,788-789,800-806,820,828-829,844-874
+  notificationService.ts     |     100 |    66.66 |     100 |     100 | 28
+  reportService.ts           |     100 |     87.5 |     100 |     100 | 34
+  securityService.ts         |   92.85 |    91.66 |     100 |   95.65 | 62
+  storageKeys.ts             |     100 |      100 |     100 |     100 |
+  syncService.ts             |   85.41 |    33.33 |   85.71 |   84.44 | 50-87,212
+ theme                       |     100 |      100 |     100 |     100 |
+  colors.ts                  |     100 |      100 |     100 |     100 |
+  layout.ts                  |     100 |      100 |     100 |     100 |
+ utils                       |     100 |    92.68 |     100 |     100 |
+  geoUtils.ts                |     100 |    85.71 |     100 |     100 | 64-68
+  idUtils.ts                 |     100 |     87.5 |     100 |     100 | 8
+  validationUtils.ts         |     100 |      100 |     100 |     100 |
+-----------------------------|---------|----------|---------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Test Suites: 26 passed, 26 total
+Tests:       143 passed, 143 total
+Snapshots:   0 total
+Time:        15.737 s, estimated 49 s
+Ran all test suites.
